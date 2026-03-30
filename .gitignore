@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.pytest_cache/
+.mypy_cache/
+
+# Scout runtime files
+last_run.json
+digests/
+
+# User config (contains API key references and personal research profile)
+scout.yml
+
+# Environment
+.env
+.venv/
+node_modules/

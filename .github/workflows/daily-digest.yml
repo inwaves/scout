@@ -1,0 +1,68 @@
+name: Scout Daily Digest
+
+on:
+  schedule:
+    # Run daily at 7 AM UTC
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+    # Allow manual trigger from GitHub UI
+    inputs:
+      dry_run:
+        description: "Dry run (print digest to stdout, skip delivery)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  contents: write
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore state file
+        continue-on-error: true
+        uses: actions/cache@v4
+        with:
+          path: last_run.json
+          key: scout-state-${{ github.run_id }}
+          restore-keys: |
+            scout-state-
+
+      - name: Run Scout
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            python -m paper_scout -v run --dry-run
+          else
+            python -m paper_scout -v run
+          fi
+
+      - name: Commit digest files
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          git config user.name "Scout Bot"
+          git config user.email "scout[bot]@users.noreply.github.com"
+          git add digests/ last_run.json
+          git diff --cached --quiet || git commit -m "📄 Scout digest $(date -u +%Y-%m-%d)"
+          git push

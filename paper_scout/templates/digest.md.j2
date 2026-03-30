@@ -1,0 +1,21 @@
+# 📄 Scout Digest — {{ date_display }}
+
+**{{ selected_count }} papers scored ≥{{ threshold | fmt_score }} out of {{ total_reviewed }} reviewed**
+
+{% if selected_count == 0 %}
+_No papers met your threshold today._
+{% else %}
+{% for entry in entries %}
+---
+### {{ loop.index }}. [{{ entry.paper.title }}]({{ entry.paper.url }})
+
+**Score: {{ entry.relevance_score | fmt_score }}/10** · Novelty: {{ entry.novelty_signal }}  
+*Authors: {{ entry.paper.authors | join(", ") }}*  
+*Categories: {{ entry.paper.categories | join(", ") }}*
+
+{{ entry.summary }}
+
+[📄 PDF]({{ entry.paper.pdf_url }}) · [🔗 Abstract]({{ entry.paper.url }})
+
+{% endfor %}
+{% endif %}

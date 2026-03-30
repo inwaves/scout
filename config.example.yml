@@ -1,0 +1,86 @@
+# Scout — Example Configuration
+# Copy this file to scout.yml and customize your research profile.
+
+anthropic_api_key: "${ANTHROPIC_API_KEY}"
+state_file: "./last_run.json"
+
+profile:
+  name: "ML/AI Agents Research"
+  description: |
+    I am a researcher focused on autonomous AI agents, particularly:
+
+    HIGH INTEREST:
+    - Agent architectures (planning, reasoning, memory, tool use)
+    - Multi-agent systems and collaboration
+    - LLM-based agents for software engineering and coding
+    - Agent evaluation, benchmarks, and failure modes
+    - Reinforcement learning for agent training (RLHF, RLAIF, reward modeling)
+    - Agent safety, alignment, and controllability
+
+    MODERATE INTEREST:
+    - Foundation model training and scaling (pre-training, post-training)
+    - Retrieval-augmented generation (RAG) architectures
+    - Prompt engineering and in-context learning
+    - Inference optimization (KV cache, speculative decoding, quantization)
+
+    LOW INTEREST (only if groundbreaking):
+    - Applications of existing AI to specific domains (medical, legal, etc.)
+    - Pure computer vision without agent/reasoning components
+    - Speech and audio models
+    - Robotics hardware
+
+  scoring_rubric: |
+    Score each paper 1-10 based on:
+    - 9-10: Directly advances agent architectures, multi-agent systems,
+            or agent training. Novel contribution I would want to read today.
+    - 7-8:  Relevant to my core interests. Noteworthy technique or result
+            that connects to agent research.
+    - 5-6:  Tangentially related. Interesting but not directly in my lane.
+    - 3-4:  Only loosely connected to my interests.
+    - 1-2:  Not relevant.
+
+arxiv:
+  categories:
+    - "cs.AI"
+    - "cs.MA"
+    - "cs.CL"
+    - "cs.LG"
+    - "cs.SE"
+  max_results_per_category: 200
+  lookback_hours: 28
+  max_retries: 3
+  retry_backoff_seconds: 3.0
+  query_pause_seconds: 3.0
+
+scoring:
+  model: "claude-sonnet-4-6"
+  batch_size: 10
+  threshold: 7
+  max_papers: 15
+  use_batch_api: true
+  temperature: 0.0
+  max_output_tokens: 4096
+  batch_poll_interval_seconds: 5
+  batch_poll_timeout_seconds: 1800
+  summary_words: 150
+
+delivery:
+  channels:
+    # - type: "email"
+    #   smtp_host: "smtp.gmail.com"
+    #   smtp_port: 587
+    #   smtp_username: "${SMTP_USERNAME}"
+    #   smtp_password: "${SMTP_PASSWORD}"
+    #   from: "scout@yourdomain.com"
+    #   to: "you@yourdomain.com"
+    #   subject_template: "Scout Digest — {date} ({count} papers)"
+    # - type: "slack"
+    #   webhook_url: "${SLACK_WEBHOOK_URL}"
+    # - type: "discord"
+    #   webhook_url: "${DISCORD_WEBHOOK_URL}"
+    - type: "markdown"
+      output_dir: "./digests"
+      filename_template: "scout-{date}.md"
+
+schedule:
+  cron: "0 7 * * *"
