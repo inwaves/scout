@@ -8,8 +8,11 @@ Scout fetches new papers from arXiv, scores each one against your research profi
 
 1. **Fetch** — Pulls new papers from your watched arXiv categories (last 24–28 hours).
 2. **Score** — Sends each paper's title and abstract to Claude with your research profile. Gets back a relevance score (1–10), rationale, and novelty signal.
-3. **Summarize** — For papers above your threshold, generates a ~150-word summary explaining what the paper does, why it matters to you, and the key technical contribution.
-4. **Deliver** — Renders a digest in Markdown and HTML, then delivers via your configured channels.
+3. **Watchlist** — Checks author names and affiliations against your configured watchlist. Papers from priority labs (Anthropic, OpenAI, DeepMind) or specific authors are always included.
+4. **Deep Read** *(weekly mode)* — For the top 5 papers, an agentic reader analyzes the full PDF via Claude's native document support. It can query Scout's knowledge base and Semantic Scholar for context, then produces a structured breakdown: TL;DR, motivation, hypothesis, methodology, results, interpretation, context, limitations, and personal relevance.
+5. **Knowledge Base** — Each deep-read paper is stored with its topics, key findings, and references. On future runs, the agent uses this accumulated knowledge to situate new papers.
+6. **Deliver** — Renders a two-tier digest (Deep Reads + Also Noteworthy) in Markdown and HTML, then delivers via your configured channels.
+7. **Hot Alerts** — Papers scoring ≥9 or matching your watchlist trigger immediate notifications.
 
 ## Quick Start
 
@@ -151,6 +154,7 @@ Options:
 
 Run Options:
   --dry-run       Print digest to stdout; skip delivery and state update
+  --weekly        Enable weekly mode: run agentic deep reads for top papers
 ```
 
 ## Project Structure

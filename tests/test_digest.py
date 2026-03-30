@@ -40,7 +40,7 @@ class TestDigestRenderer:
             entries=[_make_entry()],
         )
         result = renderer.render(context)
-        assert "Paper Scout Digest" in result.markdown
+        assert "Scout Digest" in result.markdown
         assert "Test Paper" in result.markdown
         assert "9/10" in result.markdown
         assert "200 reviewed" in result.markdown
@@ -68,8 +68,8 @@ class TestDigestRenderer:
             entries=[],
         )
         result = renderer.render(context)
-        assert "0 papers scored" in result.markdown
-        assert "No papers met your threshold" in result.markdown
+        assert "0 papers surfaced" in result.markdown
+        assert "No papers met your criteria" in result.markdown
 
     def test_subject_template(self) -> None:
         renderer = DigestRenderer()
@@ -97,7 +97,7 @@ class TestDigestRenderer:
             entries=entries,
         )
         result = renderer.render(context)
-        assert "3 papers scored" in result.markdown
+        assert "3 papers surfaced" in result.markdown
         # Check ordering preserved
         first_pos = result.markdown.find("First")
         second_pos = result.markdown.find("Second")

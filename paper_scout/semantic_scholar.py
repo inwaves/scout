@@ -155,39 +155,57 @@ class SemanticScholarClient:
         if query:
             url = f"{url}?{query}"
 
-        self._wait_for_rate_slot()
+        max_retries = 3
+        last_error: Exception | None = None
 
-        request = urllib.request.Request(
-            url,
-            headers={
-                "User-Agent": "paper-scout/0.2 (+https://api.semanticscholar.org)",
-                "Accept": "application/json",
-            },
-        )
+        for attempt in range(1, max_retries + 1):
+            self._wait_for_rate_slot()
 
-        try:
-            with urllib.request.urlopen(request, timeout=self.request_timeout_seconds) as response:
-                status = getattr(response, "status", 200)
-                if status == 404:
+            request = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "paper-scout/0.2 (+https://api.semanticscholar.org)",
+                    "Accept": "application/json",
+                },
+            )
+
+            try:
+                with urllib.request.urlopen(request, timeout=self.request_timeout_seconds) as response:
+                    status = getattr(response, "status", 200)
+                    if status == 404:
+                        return None
+                    if status >= 400:
+                        raise SemanticScholarError(f"Semantic Scholar HTTP status {status} for {url}.")
+                    body = response.read()
+
+                try:
+                    return json.loads(body.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                    raise SemanticScholarError(
+                        f"Semantic Scholar response was not valid JSON for {url}: {exc}"
+                    ) from exc
+
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404:
                     return None
-                if status >= 400:
-                    raise SemanticScholarError(f"Semantic Scholar HTTP status {status} for {url}.")
-                body = response.read()
-        except urllib.error.HTTPError as exc:
-            if exc.code == 404:
-                return None
-            raise SemanticScholarError(
-                f"Semantic Scholar request failed ({exc.code}) for {url}: {exc.reason}"
-            ) from exc
-        except urllib.error.URLError as exc:
-            raise SemanticScholarError(f"Semantic Scholar request failed for {url}: {exc}") from exc
+                if exc.code == 429 and attempt < max_retries:
+                    sleep_seconds = min(30.0, 2.0 ** attempt)
+                    time.sleep(sleep_seconds)
+                    last_error = exc
+                    continue
+                raise SemanticScholarError(
+                    f"Semantic Scholar request failed ({exc.code}) for {url}: {exc.reason}"
+                ) from exc
+            except urllib.error.URLError as exc:
+                last_error = exc
+                if attempt < max_retries:
+                    time.sleep(2.0 ** attempt)
+                    continue
+                raise SemanticScholarError(f"Semantic Scholar request failed for {url}: {exc}") from exc
 
-        try:
-            return json.loads(body.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise SemanticScholarError(
-                f"Semantic Scholar response was not valid JSON for {url}: {exc}"
-            ) from exc
+        if last_error is not None:
+            raise SemanticScholarError(f"Semantic Scholar request failed after {max_retries} retries for {url}: {last_error}") from last_error
+        return None
 
     def _wait_for_rate_slot(self) -> None:
         if self.pause_seconds <= 0:

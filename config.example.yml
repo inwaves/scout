@@ -64,6 +64,41 @@ scoring:
   batch_poll_timeout_seconds: 1800
   summary_words: 150
 
+# v2: Agentic deep read analysis of top papers
+analysis:
+  deep_read_count: 5              # Papers to analyze in depth per weekly run
+  model: "claude-sonnet-4-6"      # Model for deep reads
+  temperature: 0.2                # Slightly creative for prose quality
+  max_output_tokens: 8192
+  max_agent_turns: 10             # Max tool-use turns per paper
+
+# v2: Author/org watchlist — always surface matching papers
+watchlist:
+  organizations:
+    - name: "Anthropic"
+      aliases: ["Anthropic"]
+      always_include: true
+    - name: "OpenAI"
+      aliases: ["OpenAI"]
+      always_include: true
+    - name: "Google DeepMind"
+      aliases: ["Google DeepMind", "DeepMind"]
+      always_include: true
+  authors: []
+    # - "Author Name"
+
+# v2: Hot alerts for exceptional papers
+alerts:
+  enabled: true
+  score_threshold: 9              # Alert if score >= 9
+  watchlist_score_threshold: 8    # Alert if watchlist org + score >= 8
+  channel: "email"
+
+# v2: Persistent knowledge base
+knowledge_base:
+  path: "./knowledge_base"
+  max_topic_references: 50
+
 delivery:
   channels:
     # - type: "email"
@@ -83,4 +118,5 @@ delivery:
       filename_template: "scout-{date}.md"
 
 schedule:
-  cron: "0 7 * * *"
+  scoring_cron: "0 7 * * *"      # Daily abstract scoring
+  digest_cron: "0 7 * * 1"       # Weekly digest: Monday 7 AM UTC
