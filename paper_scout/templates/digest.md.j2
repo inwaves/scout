@@ -1,21 +1,63 @@
 # 📄 Scout Digest — {{ date_display }}
 
-**{{ selected_count }} papers scored ≥{{ threshold | fmt_score }} out of {{ total_reviewed }} reviewed**
+**{{ selected_count }} papers surfaced out of {{ total_reviewed }} reviewed**  
+**Threshold:** ≥{{ threshold | fmt_score }}
 
 {% if selected_count == 0 %}
-_No papers met your threshold today._
+_No papers met your criteria in this run._
 {% else %}
-{% for entry in entries %}
+{% if deep_reads %}
+## 🔍 Deep Reads
+
+{% for entry in deep_reads %}
 ---
 ### {{ loop.index }}. [{{ entry.paper.title }}]({{ entry.paper.url }})
 
-**Score: {{ entry.relevance_score | fmt_score }}/10** · Novelty: {{ entry.novelty_signal }}  
+**Score: {{ entry.relevance_score | fmt_score }}/10** · Novelty: {{ entry.novelty_signal }}{% if entry.watchlist_match %} · Watchlist: {{ entry.watchlist_match }}{% endif %}  
 *Authors: {{ entry.paper.authors | join(", ") }}*  
 *Categories: {{ entry.paper.categories | join(", ") }}*
 
-{{ entry.summary }}
+**Triage:** {{ entry.breakdown.triage }}
+
+**TL;DR**
+{% for bullet in entry.breakdown.tldr %}
+- {{ bullet }}
+{% endfor %}
+
+**Motivation**  
+{{ entry.breakdown.motivation }}
+
+**Hypothesis**  
+{{ entry.breakdown.hypothesis }}
+
+**Methodology**  
+{{ entry.breakdown.methodology }}
+
+**Results**  
+{{ entry.breakdown.results }}
+
+**Interpretation**  
+{{ entry.breakdown.interpretation }}
+
+**Context**  
+{{ entry.breakdown.context }}
+
+**Limitations**  
+{{ entry.breakdown.limitations }}
+
+**Why it matters to you**  
+{{ entry.breakdown.relevance }}
 
 [📄 PDF]({{ entry.paper.pdf_url }}) · [🔗 Abstract]({{ entry.paper.url }})
 
 {% endfor %}
+{% endif %}
+
+{% if noteworthy_entries %}
+## Also Noteworthy
+
+{% for entry in noteworthy_entries %}
+- **[{{ entry.paper.title }}]({{ entry.paper.url }})** — {{ entry.relevance_score | fmt_score }}/10{% if entry.watchlist_match %} · Watchlist: {{ entry.watchlist_match }}{% endif %}. {{ entry.summary }} ([PDF]({{ entry.paper.pdf_url }}))
+{% endfor %}
+{% endif %}
 {% endif %}

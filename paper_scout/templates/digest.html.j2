@@ -14,7 +14,7 @@
       }
 
       .container {
-        max-width: 760px;
+        max-width: 860px;
         margin: 0 auto;
         padding: 24px;
         background: #ffffff;
@@ -23,6 +23,16 @@
       h1 {
         font-size: 24px;
         margin-top: 0;
+      }
+
+      h2 {
+        margin-top: 28px;
+        font-size: 20px;
+      }
+
+      h3 {
+        margin: 0 0 8px;
+        font-size: 18px;
       }
 
       .meta {
@@ -39,12 +49,6 @@
         border-top: none;
       }
 
-      .title {
-        font-size: 18px;
-        font-weight: 600;
-        margin: 0 0 6px;
-      }
-
       .score {
         margin: 4px 0 8px;
         color: #111827;
@@ -56,8 +60,21 @@
         margin: 2px 0;
       }
 
-      .summary {
-        margin: 10px 0 10px;
+      .section-label {
+        margin: 10px 0 4px;
+        font-weight: 600;
+      }
+
+      ul {
+        margin-top: 6px;
+      }
+
+      .noteworthy-list {
+        padding-left: 18px;
+      }
+
+      .noteworthy-list li {
+        margin-bottom: 8px;
       }
 
       a {
@@ -80,29 +97,66 @@
     <div class="container">
       <h1>📄 Scout Digest — {{ date_display }}</h1>
       <div class="meta">
-        <strong>{{ selected_count }}</strong> papers scored ≥{{ threshold | fmt_score }} out of {{ total_reviewed }} reviewed
+        <strong>{{ selected_count }}</strong> papers surfaced out of {{ total_reviewed }} reviewed
+        <br />
+        Threshold: ≥{{ threshold | fmt_score }}
       </div>
 
       {% if selected_count == 0 %}
-      <p>No papers met your threshold today.</p>
+      <p>No papers met your criteria in this run.</p>
       {% else %}
-      {% for entry in entries %}
+      {% if deep_reads %}
+      <h2>🔍 Deep Reads</h2>
+
+      {% for entry in deep_reads %}
       <div class="paper">
-        <p class="title">
-          {{ loop.index }}.
-          <a href="{{ entry.paper.url }}">{{ entry.paper.title }}</a>
-        </p>
+        <h3>{{ loop.index }}. <a href="{{ entry.paper.url }}">{{ entry.paper.title }}</a></h3>
 
         <p class="score">
           <strong>Score:</strong> {{ entry.relevance_score | fmt_score }}/10
           &nbsp;·&nbsp;
           <strong>Novelty:</strong> {{ entry.novelty_signal }}
+          {% if entry.watchlist_match %}
+          &nbsp;·&nbsp;
+          <strong>Watchlist:</strong> {{ entry.watchlist_match }}
+          {% endif %}
         </p>
 
         <p class="dim"><strong>Authors:</strong> {{ entry.paper.authors | join(", ") }}</p>
         <p class="dim"><strong>Categories:</strong> {{ entry.paper.categories | join(", ") }}</p>
 
-        <p class="summary">{{ entry.summary }}</p>
+        <p><strong>Triage:</strong> {{ entry.breakdown.triage }}</p>
+
+        <p class="section-label">TL;DR</p>
+        <ul>
+          {% for bullet in entry.breakdown.tldr %}
+          <li>{{ bullet }}</li>
+          {% endfor %}
+        </ul>
+
+        <p class="section-label">Motivation</p>
+        <p>{{ entry.breakdown.motivation }}</p>
+
+        <p class="section-label">Hypothesis</p>
+        <p>{{ entry.breakdown.hypothesis }}</p>
+
+        <p class="section-label">Methodology</p>
+        <p>{{ entry.breakdown.methodology }}</p>
+
+        <p class="section-label">Results</p>
+        <p>{{ entry.breakdown.results }}</p>
+
+        <p class="section-label">Interpretation</p>
+        <p>{{ entry.breakdown.interpretation }}</p>
+
+        <p class="section-label">Context</p>
+        <p>{{ entry.breakdown.context }}</p>
+
+        <p class="section-label">Limitations</p>
+        <p>{{ entry.breakdown.limitations }}</p>
+
+        <p class="section-label">Why it matters to you</p>
+        <p>{{ entry.breakdown.relevance }}</p>
 
         <p>
           <a href="{{ entry.paper.pdf_url }}">📄 PDF</a>
@@ -111,6 +165,24 @@
         </p>
       </div>
       {% endfor %}
+      {% endif %}
+
+      {% if noteworthy_entries %}
+      <h2>Also Noteworthy</h2>
+      <ul class="noteworthy-list">
+        {% for entry in noteworthy_entries %}
+        <li>
+          <a href="{{ entry.paper.url }}"><strong>{{ entry.paper.title }}</strong></a>
+          — {{ entry.relevance_score | fmt_score }}/10
+          {% if entry.watchlist_match %}
+          · Watchlist: {{ entry.watchlist_match }}
+          {% endif %}
+          . {{ entry.summary }}
+          (<a href="{{ entry.paper.pdf_url }}">PDF</a>)
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
       {% endif %}
 
       <div class="footer">

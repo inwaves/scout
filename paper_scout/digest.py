@@ -30,13 +30,19 @@ class DigestRenderer:
         context: DigestContext,
         subject_template: str | None = None,
     ) -> RenderedDigest:
+        deep_reads = list(context.deep_reads)
+        noteworthy_entries = list(context.noteworthy_entries or context.entries)
+        selected_count = len(deep_reads) + len(noteworthy_entries)
+
         render_context = {
             "generated_at": context.generated_at,
             "date_display": context.generated_at.strftime("%B %d, %Y"),
             "total_reviewed": context.total_reviewed,
-            "selected_count": len(context.entries),
+            "selected_count": selected_count,
             "threshold": context.threshold,
-            "entries": context.entries,
+            "entries": noteworthy_entries,
+            "deep_reads": deep_reads,
+            "noteworthy_entries": noteworthy_entries,
         }
 
         try:
@@ -51,12 +57,12 @@ class DigestRenderer:
         try:
             subject = template.format(
                 date=context.generated_at.strftime("%Y-%m-%d"),
-                count=len(context.entries),
+                count=selected_count,
             )
         except Exception:
             subject = DEFAULT_SUBJECT_TEMPLATE.format(
                 date=context.generated_at.strftime("%Y-%m-%d"),
-                count=len(context.entries),
+                count=selected_count,
             )
 
         return RenderedDigest(subject=subject, markdown=markdown, html=html)

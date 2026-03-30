@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Sequence
 
@@ -10,18 +11,39 @@ from .config import (
     ConfigError,
     DEFAULT_SUBJECT_TEMPLATE,
     PaperScoutConfig,
+    WatchlistConfig,
     describe_config,
     load_config,
 )
+from .deep_reader import DeepReadAgent, DeepReadError
 from .delivery import DeliveryError, build_delivery_channels
 from .digest import DigestRenderer
 from .fetcher import ArxivFetcher
-from .models import DigestContext, DigestEntry, ScoredPaper
+from .knowledge_base import KnowledgeBase, KnowledgeBaseError
+from .models import (
+    DigestContext,
+    DigestEntry,
+    DeepReadBreakdown,
+    DeepReadEntry,
+    DeepReadResult,
+    KBPaperRecord,
+    Paper,
+    ScoredPaper,
+    WatchlistMatch,
+)
 from .scorer import AnthropicScorer, ScoringError
+from .semantic_scholar import SemanticScholarClient
 from .state import StateError, determine_since, load_last_run, save_last_run
-from .summarizer import AnthropicSummarizer, SummarizationError
+from .watchlist import WatchlistMatcher
 
 LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class HotAlert:
+    paper: Paper
+    scored: ScoredPaper
+    reason: str
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -41,7 +63,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 1
 
 
-def run_pipeline(config: PaperScoutConfig, dry_run: bool = False) -> int:
+def run_pipeline(
+    config: PaperScoutConfig,
+    dry_run: bool = False,
+    weekly: bool = False,
+) -> int:
     started_at = datetime.now(timezone.utc)
 
     try:
@@ -80,43 +106,116 @@ def run_pipeline(config: PaperScoutConfig, dry_run: bool = False) -> int:
         LOGGER.info("No new papers found for this run window.")
 
     score_by_id = {item.arxiv_id: item for item in scored if item.arxiv_id in paper_by_id}
-    selected_scored = sorted(
-        (
-            item
-            for item in score_by_id.values()
-            if item.relevance_score >= config.scoring.threshold
-        ),
-        key=lambda item: item.relevance_score,
-        reverse=True,
-    )[: config.scoring.max_papers]
 
-    summary_by_id: dict[str, str] = {}
-    if selected_scored and config.anthropic_api_key:
-        selected_papers = [paper_by_id[item.arxiv_id] for item in selected_scored]
-        summarizer = AnthropicSummarizer(config.profile, config.scoring, config.anthropic_api_key)
-        try:
-            summaries = summarizer.summarize_papers(selected_papers, score_by_id)
-            summary_by_id = {item.arxiv_id: item.summary for item in summaries}
-        except SummarizationError:
-            LOGGER.exception("Summary stage failed; falling back to scoring rationales.")
-            summary_by_id = {}
+    knowledge_base = KnowledgeBase(
+        config.knowledge_base.path,
+        max_topic_references=config.knowledge_base.max_topic_references,
+    )
+    try:
+        knowledge_base.load()
+    except KnowledgeBaseError as exc:
+        LOGGER.warning("Could not load knowledge base (%s). Proceeding with empty KB.", exc)
 
-    entries = [
-        DigestEntry(
-            paper=paper_by_id[item.arxiv_id],
-            relevance_score=item.relevance_score,
-            rationale=item.rationale,
-            novelty_signal=item.novelty_signal,
-            summary=summary_by_id.get(item.arxiv_id, item.rationale),
+    s2_client = SemanticScholarClient(
+        request_timeout_seconds=config.arxiv.request_timeout_seconds,
+        pause_seconds=max(0.0, config.arxiv.query_pause_seconds / 2.0),
+    )
+    watchlist_matcher = WatchlistMatcher(config.watchlist)
+    watchlist_matches = _match_watchlist_papers(papers, watchlist_matcher, s2_client)
+
+    selected_scored = _select_scored_for_digest(
+        papers=papers,
+        score_by_id=score_by_id,
+        watchlist_matches=watchlist_matches,
+        watchlist_config=config.watchlist,
+        threshold=config.scoring.threshold,
+        max_papers=config.scoring.max_papers,
+        knowledge_base=knowledge_base,
+    )
+
+    deep_entries: list[DeepReadEntry] = []
+    noteworthy_scored: list[ScoredPaper] = selected_scored
+
+    if weekly and selected_scored:
+        deep_target_count = max(0, config.analysis.deep_read_count)
+        deep_targets = selected_scored[:deep_target_count]
+        noteworthy_scored = selected_scored[deep_target_count:]
+
+        if deep_targets:
+            if not config.anthropic_api_key:
+                LOGGER.error("Deep read stage requires Anthropic API key.")
+                return 4
+
+            deep_reader = DeepReadAgent(
+                api_key=config.anthropic_api_key,
+                profile=config.profile,
+                analysis=config.analysis,
+                knowledge_base=knowledge_base,
+                s2_client=s2_client,
+            )
+
+            kb_dirty = False
+            for scored_item in deep_targets:
+                paper = paper_by_id.get(scored_item.arxiv_id)
+                if paper is None:
+                    continue
+
+                watch_match = watchlist_matches.get(paper.arxiv_id)
+                try:
+                    result = deep_reader.analyze_paper(paper, scored_item)
+                    entry = result.entry
+                except DeepReadError:
+                    LOGGER.exception("Deep read failed for %s", paper.arxiv_id)
+                    result = None
+                    entry = _fallback_deep_entry(
+                        paper=paper,
+                        scored=scored_item,
+                        watchlist_match=watch_match.matched_name if watch_match else None,
+                    )
+
+                if watch_match and not entry.watchlist_match:
+                    entry.watchlist_match = watch_match.matched_name
+
+                deep_entries.append(entry)
+
+                kb_record = _deep_result_to_kb_record(
+                    result=result,
+                    fallback_entry=entry,
+                    timestamp=started_at,
+                )
+                knowledge_base.add_paper(kb_record)
+                kb_dirty = True
+
+            if kb_dirty:
+                try:
+                    knowledge_base.save()
+                except KnowledgeBaseError:
+                    LOGGER.exception("Failed to save knowledge base updates.")
+
+    noteworthy_entries: list[DigestEntry] = []
+    for scored_item in noteworthy_scored:
+        paper = paper_by_id.get(scored_item.arxiv_id)
+        if paper is None:
+            continue
+        watch_match = watchlist_matches.get(scored_item.arxiv_id)
+        noteworthy_entries.append(
+            DigestEntry(
+                paper=paper,
+                relevance_score=scored_item.relevance_score,
+                rationale=scored_item.rationale,
+                novelty_signal=scored_item.novelty_signal,
+                summary=_compact_text(scored_item.rationale, max_chars=240),
+                watchlist_match=watch_match.matched_name if watch_match else None,
+            )
         )
-        for item in selected_scored
-    ]
 
     digest_context = DigestContext(
         generated_at=started_at,
         total_reviewed=len(papers),
         threshold=config.scoring.threshold,
-        entries=entries,
+        entries=noteworthy_entries,
+        deep_reads=deep_entries,
+        noteworthy_entries=noteworthy_entries,
     )
 
     renderer = DigestRenderer()
@@ -125,8 +224,26 @@ def run_pipeline(config: PaperScoutConfig, dry_run: bool = False) -> int:
         subject_template=_select_subject_template(config),
     )
 
+    hot_alerts = _collect_hot_alerts(
+        papers=papers,
+        score_by_id=score_by_id,
+        watchlist_matches=watchlist_matches,
+        watchlist_config=config.watchlist,
+        config=config,
+        knowledge_base=knowledge_base,
+    )
+
     if dry_run:
         print(rendered.markdown)
+        if hot_alerts and config.alerts.enabled:
+            LOGGER.info("Dry run hot alerts:")
+            for alert in hot_alerts:
+                LOGGER.info(
+                    "ALERT: %s | score=%.1f | reason=%s",
+                    alert.paper.title,
+                    alert.scored.relevance_score,
+                    alert.reason,
+                )
         LOGGER.info("Dry run complete. Delivery and state update skipped.")
         return 0
 
@@ -135,6 +252,9 @@ def run_pipeline(config: PaperScoutConfig, dry_run: bool = False) -> int:
     except DeliveryError as exc:
         LOGGER.error("Invalid delivery configuration: %s", exc)
         return 5
+
+    if config.alerts.enabled and hot_alerts:
+        _deliver_hot_alerts(hot_alerts, channels)
 
     successful_deliveries = 0
     if not channels:
@@ -165,9 +285,10 @@ def run_pipeline(config: PaperScoutConfig, dry_run: bool = False) -> int:
         return 7
 
     LOGGER.info(
-        "Run complete: reviewed=%d, selected=%d, delivered=%d channel(s).",
+        "Run complete: reviewed=%d, selected=%d, deep_reads=%d, delivered=%d channel(s).",
         len(papers),
-        len(entries),
+        len(deep_entries) + len(noteworthy_entries),
+        len(deep_entries),
         successful_deliveries,
     )
     return 0
@@ -180,7 +301,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         LOGGER.error("Configuration error: %s", exc)
         return 2
 
-    return run_pipeline(config, dry_run=args.dry_run)
+    return run_pipeline(config, dry_run=args.dry_run, weekly=args.weekly)
 
 
 def _cmd_test_config(args: argparse.Namespace) -> int:
@@ -219,6 +340,326 @@ def _cmd_test_fetch(args: argparse.Namespace) -> int:
     return 0
 
 
+def _match_watchlist_papers(
+    papers: Sequence[Paper],
+    matcher: WatchlistMatcher,
+    s2_client: SemanticScholarClient,
+) -> dict[str, WatchlistMatch]:
+    matches: dict[str, WatchlistMatch] = {}
+    has_org_watchlist = bool(matcher.config.organizations)
+
+    for paper in papers:
+        match = matcher.match_paper(paper)
+        if match:
+            matches[paper.arxiv_id] = match
+            continue
+
+        if not has_org_watchlist:
+            continue
+
+        try:
+            affiliations = s2_client.get_author_affiliations(paper.arxiv_id)
+        except Exception as exc:
+            LOGGER.debug(
+                "Failed to fetch affiliations for watchlist matching (%s): %s",
+                paper.arxiv_id,
+                exc,
+            )
+            continue
+
+        match = matcher.match_paper(paper, affiliations=affiliations)
+        if match:
+            matches[paper.arxiv_id] = match
+
+    return matches
+
+
+def _select_scored_for_digest(
+    *,
+    papers: Sequence[Paper],
+    score_by_id: dict[str, ScoredPaper],
+    watchlist_matches: dict[str, WatchlistMatch],
+    watchlist_config: WatchlistConfig,
+    threshold: float,
+    max_papers: int,
+    knowledge_base: KnowledgeBase,
+) -> list[ScoredPaper]:
+    watchlist_items: list[ScoredPaper] = []
+    scored_items: list[ScoredPaper] = []
+    seen_ids: set[str] = set()
+
+    for paper in papers:
+        arxiv_id = paper.arxiv_id
+        if arxiv_id in seen_ids:
+            continue
+        seen_ids.add(arxiv_id)
+
+        if knowledge_base.has_paper(arxiv_id):
+            LOGGER.debug("Skipping %s (already present in knowledge base).", arxiv_id)
+            continue
+
+        scored_item = score_by_id.get(arxiv_id)
+        watch_match = watchlist_matches.get(arxiv_id)
+
+        include_by_watchlist = (
+            watch_match is not None and _watchlist_always_include(watch_match, watchlist_config)
+        )
+        include_by_score = scored_item is not None and scored_item.relevance_score >= threshold
+
+        if not include_by_watchlist and not include_by_score:
+            continue
+
+        if scored_item is None:
+            scored_item = ScoredPaper(
+                arxiv_id=arxiv_id,
+                relevance_score=0.0,
+                rationale=(
+                    f"Included due to watchlist match: {watch_match.matched_name}."
+                    if watch_match
+                    else "Included due to watchlist match."
+                ),
+                novelty_signal="incremental",
+            )
+
+        if include_by_watchlist:
+            watchlist_items.append(scored_item)
+        else:
+            scored_items.append(scored_item)
+
+    watchlist_items.sort(key=lambda item: item.relevance_score, reverse=True)
+    scored_items.sort(key=lambda item: item.relevance_score, reverse=True)
+
+    ordered: list[ScoredPaper] = []
+    watch_ids: set[str] = set()
+
+    for item in watchlist_items:
+        if item.arxiv_id in watch_ids:
+            continue
+        watch_ids.add(item.arxiv_id)
+        ordered.append(item)
+
+    for item in scored_items:
+        if item.arxiv_id in watch_ids:
+            continue
+        ordered.append(item)
+
+    if len(watchlist_items) >= max_papers:
+        return ordered
+    return ordered[:max_papers]
+
+
+def _watchlist_always_include(match: WatchlistMatch, config: WatchlistConfig) -> bool:
+    if match.match_type == "author":
+        return True
+    if match.match_type != "organization":
+        return False
+
+    normalized = match.matched_name.strip().lower()
+    for org in config.organizations:
+        if org.name.strip().lower() == normalized:
+            return org.always_include
+    return True
+
+
+def _fallback_deep_entry(
+    *,
+    paper: Paper,
+    scored: ScoredPaper,
+    watchlist_match: str | None,
+) -> DeepReadEntry:
+    triage = (
+        "Read the full paper — deep reader fallback could not extract full structure."
+        if scored.relevance_score >= 8.0
+        else "TL;DR captures it — deep reader fallback could not extract full structure."
+    )
+
+    tldr = [
+        _compact_text(scored.rationale, max_chars=180) or "Relevance rationale unavailable.",
+        "Automated deep-read extraction failed for this paper in this run.",
+        "Use the paper link for manual follow-up.",
+    ]
+
+    breakdown = DeepReadBreakdown(
+        triage=triage,
+        tldr=tldr,
+        motivation=_compact_text(scored.rationale, max_chars=240),
+        hypothesis="Unable to extract automatically in this run.",
+        methodology="Unable to extract automatically in this run.",
+        results="Unable to extract automatically in this run.",
+        interpretation="Unable to extract automatically in this run.",
+        context="No additional contextual investigation completed.",
+        limitations="Structured deep-read generation failed in this run.",
+        relevance=_compact_text(scored.rationale, max_chars=220),
+    )
+
+    return DeepReadEntry(
+        paper=paper,
+        relevance_score=scored.relevance_score,
+        rationale=scored.rationale,
+        novelty_signal=scored.novelty_signal,
+        breakdown=breakdown,
+        watchlist_match=watchlist_match,
+    )
+
+
+def _deep_result_to_kb_record(
+    *,
+    result: DeepReadResult | None,
+    fallback_entry: DeepReadEntry,
+    timestamp: datetime,
+) -> KBPaperRecord:
+    if result is not None:
+        entry = result.entry
+        topics = _dedupe(_sanitize_list(result.topics)) or _fallback_topics(entry.paper)
+        key_findings = _dedupe(_sanitize_list(result.key_findings)) or entry.breakdown.tldr[:3]
+        builds_on = _dedupe(_sanitize_list(result.builds_on))
+    else:
+        entry = fallback_entry
+        topics = _fallback_topics(entry.paper)
+        key_findings = entry.breakdown.tldr[:3]
+        builds_on = []
+
+    return KBPaperRecord(
+        arxiv_id=entry.paper.arxiv_id,
+        title=entry.paper.title,
+        authors=list(entry.paper.authors),
+        date_read=timestamp.date().isoformat(),
+        score=entry.relevance_score,
+        topics=topics,
+        key_findings=key_findings,
+        builds_on=builds_on,
+        tldr=" ".join(entry.breakdown.tldr[:3]).strip(),
+    )
+
+
+def _fallback_topics(paper: Paper) -> list[str]:
+    topics = [topic for topic in paper.categories if topic.strip()]
+    if topics:
+        return topics[:3]
+    return ["uncategorized"]
+
+
+def _collect_hot_alerts(
+    *,
+    papers: Sequence[Paper],
+    score_by_id: dict[str, ScoredPaper],
+    watchlist_matches: dict[str, WatchlistMatch],
+    watchlist_config: WatchlistConfig,
+    config: PaperScoutConfig,
+    knowledge_base: KnowledgeBase,
+) -> list[HotAlert]:
+    if not config.alerts.enabled:
+        return []
+
+    alerts_by_id: dict[str, HotAlert] = {}
+
+    for paper in papers:
+        if knowledge_base.has_paper(paper.arxiv_id):
+            continue
+
+        scored = score_by_id.get(paper.arxiv_id)
+        watch_match = watchlist_matches.get(paper.arxiv_id)
+        score = scored.relevance_score if scored else 0.0
+
+        reason: str | None = None
+        if watch_match and watch_match.match_type == "author":
+            reason = f"Watchlist author match: {watch_match.matched_name}"
+        elif score >= config.alerts.score_threshold:
+            reason = f"High relevance score: {score:.1f}/10"
+        elif (
+            watch_match
+            and watch_match.match_type == "organization"
+            and _watchlist_always_include(watch_match, watchlist_config)
+            and score >= config.alerts.watchlist_score_threshold
+        ):
+            reason = (
+                f"Watchlist organization match: {watch_match.matched_name} "
+                f"with score {score:.1f}/10"
+            )
+
+        if not reason:
+            continue
+
+        scored_payload = scored or ScoredPaper(
+            arxiv_id=paper.arxiv_id,
+            relevance_score=score,
+            rationale=reason,
+            novelty_signal="incremental",
+        )
+        alerts_by_id[paper.arxiv_id] = HotAlert(
+            paper=paper,
+            scored=scored_payload,
+            reason=reason,
+        )
+
+    alerts = list(alerts_by_id.values())
+    alerts.sort(key=lambda alert: alert.scored.relevance_score, reverse=True)
+    return alerts
+
+
+def _deliver_hot_alerts(hot_alerts: Sequence[HotAlert], channels: Sequence[object]) -> None:
+    non_file_channels = [
+        channel
+        for channel in channels
+        if getattr(channel, "channel_type", "").lower() != "markdown"
+    ]
+
+    if not non_file_channels:
+        for alert in hot_alerts:
+            LOGGER.info(
+                "HOT ALERT: %s | %.1f/10 | %s",
+                alert.paper.title,
+                alert.scored.relevance_score,
+                alert.reason,
+            )
+        return
+
+    for alert in hot_alerts:
+        subject = f"🔔 Scout Alert: {alert.paper.title}"
+        markdown_body = _render_alert_markdown(alert)
+        html_body = _render_alert_html(alert)
+
+        for channel in non_file_channels:
+            try:
+                channel.deliver(
+                    subject=subject,
+                    markdown_body=markdown_body,
+                    html_body=html_body,
+                )
+            except DeliveryError:
+                LOGGER.exception(
+                    "Hot alert delivery failed for channel '%s'.",
+                    getattr(channel, "channel_type", "unknown"),
+                )
+
+
+def _render_alert_markdown(alert: HotAlert) -> str:
+    return (
+        f"🔔 **Scout Alert**\n\n"
+        f"**Reason:** {alert.reason}\n\n"
+        f"**[{alert.paper.title}]({alert.paper.url})**\n\n"
+        f"Score: {alert.scored.relevance_score:.1f}/10 · Novelty: {alert.scored.novelty_signal}\n"
+        f"Authors: {', '.join(alert.paper.authors)}\n"
+        f"PDF: {alert.paper.pdf_url}\n\n"
+        "Full analysis appears in the weekly digest."
+    )
+
+
+def _render_alert_html(alert: HotAlert) -> str:
+    return (
+        "<html><body>"
+        "<p>🔔 <strong>Scout Alert</strong></p>"
+        f"<p><strong>Reason:</strong> {alert.reason}</p>"
+        f"<p><a href=\"{alert.paper.url}\"><strong>{alert.paper.title}</strong></a></p>"
+        f"<p>Score: {alert.scored.relevance_score:.1f}/10 · "
+        f"Novelty: {alert.scored.novelty_signal}</p>"
+        f"<p>Authors: {', '.join(alert.paper.authors)}</p>"
+        f"<p><a href=\"{alert.paper.pdf_url}\">PDF</a></p>"
+        "<p>Full analysis appears in the weekly digest.</p>"
+        "</body></html>"
+    )
+
+
 def _select_subject_template(config: PaperScoutConfig) -> str:
     for channel in config.delivery_channels:
         if channel.type.lower() == "email" and channel.subject_template:
@@ -249,17 +690,52 @@ def _build_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    run_parser = subparsers.add_parser("run", help="Run full fetch → score → summarize → deliver")
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Run full fetch → score → digest pipeline (weekly mode enables deep reads).",
+    )
     run_parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Run pipeline but skip delivery and state updates; print markdown digest to stdout.",
+    )
+    run_parser.add_argument(
+        "--weekly",
+        action="store_true",
+        help="Enable weekly mode: run deep reads for top-ranked papers before rendering digest.",
     )
 
     subparsers.add_parser("test-config", help="Validate config and print summary")
     subparsers.add_parser("test-fetch", help="Fetch papers only (no LLM calls)")
 
     return parser
+
+
+def _compact_text(text: str, *, max_chars: int) -> str:
+    collapsed = " ".join(text.split())
+    if len(collapsed) <= max_chars:
+        return collapsed
+    return collapsed[: max_chars - 1].rstrip() + "…"
+
+
+def _sanitize_list(values: Sequence[str]) -> list[str]:
+    cleaned: list[str] = []
+    for value in values:
+        text = str(value).strip()
+        if text:
+            cleaned.append(text)
+    return cleaned
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        deduped.append(value)
+    return deduped
 
 
 def _configure_logging(verbosity: int) -> None:

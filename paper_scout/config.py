@@ -51,6 +51,42 @@ class ScoringConfig:
 
 
 @dataclass(slots=True)
+class AnalysisConfig:
+    deep_read_count: int = 5
+    model: str = "claude-sonnet-4-6"
+    temperature: float = 0.2
+    max_output_tokens: int = 8192
+    max_agent_turns: int = 10
+
+
+@dataclass(slots=True)
+class WatchlistOrgConfig:
+    name: str
+    aliases: list[str]
+    always_include: bool = True
+
+
+@dataclass(slots=True)
+class WatchlistConfig:
+    organizations: list[WatchlistOrgConfig] = field(default_factory=list)
+    authors: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class AlertConfig:
+    enabled: bool = True
+    score_threshold: float = 9.0
+    watchlist_score_threshold: float = 8.0
+    channel: str = "email"
+
+
+@dataclass(slots=True)
+class KnowledgeBaseConfig:
+    path: str = "./knowledge_base"
+    max_topic_references: int = 50
+
+
+@dataclass(slots=True)
 class DeliveryChannelConfig:
     type: str
     enabled: bool = True
@@ -69,7 +105,9 @@ class DeliveryChannelConfig:
 
 @dataclass(slots=True)
 class ScheduleConfig:
-    cron: str = "0 7 * * 1-5"
+    cron: str = "0 7 * * 1-5"  # Backward-compatible legacy field.
+    scoring_cron: str = "0 7 * * *"
+    digest_cron: str = "0 7 * * 1"
 
 
 @dataclass(slots=True)
@@ -77,6 +115,10 @@ class PaperScoutConfig:
     profile: ProfileConfig
     arxiv: ArxivConfig
     scoring: ScoringConfig
+    analysis: AnalysisConfig = field(default_factory=AnalysisConfig)
+    watchlist: WatchlistConfig = field(default_factory=WatchlistConfig)
+    alerts: AlertConfig = field(default_factory=AlertConfig)
+    knowledge_base: KnowledgeBaseConfig = field(default_factory=KnowledgeBaseConfig)
     delivery_channels: list[DeliveryChannelConfig] = field(default_factory=list)
     schedule: ScheduleConfig = field(default_factory=ScheduleConfig)
     anthropic_api_key: str | None = None
@@ -118,9 +160,16 @@ def describe_config(config: PaperScoutConfig) -> str:
             f"Threshold: {config.scoring.threshold}",
             f"Max papers in digest: {config.scoring.max_papers}",
             f"Use Anthropic batch API: {config.scoring.use_batch_api}",
+            f"Deep read count: {config.analysis.deep_read_count}",
+            f"Deep read model: {config.analysis.model}",
+            f"Watchlist authors: {len(config.watchlist.authors)}",
+            f"Watchlist organizations: {len(config.watchlist.organizations)}",
+            f"Alerts enabled: {'yes' if config.alerts.enabled else 'no'}",
+            f"Knowledge base path: {config.knowledge_base.path}",
             f"Delivery channels: {channels}",
             f"State file: {config.state_file}",
-            f"Schedule cron: {config.schedule.cron}",
+            f"Schedule scoring cron: {config.schedule.scoring_cron}",
+            f"Schedule digest cron: {config.schedule.digest_cron}",
             f"Anthropic API key configured: {'yes' if config.anthropic_api_key else 'no'}",
         ]
     )
@@ -177,6 +226,10 @@ def _parse_config(raw: dict[str, Any], path: Path) -> PaperScoutConfig:
     profile = _parse_profile(raw.get("profile"))
     arxiv = _parse_arxiv(raw.get("arxiv", {}))
     scoring = _parse_scoring(raw.get("scoring", {}))
+    analysis = _parse_analysis(raw.get("analysis", {}))
+    watchlist = _parse_watchlist(raw.get("watchlist", {}))
+    alerts = _parse_alerts(raw.get("alerts", {}))
+    knowledge_base = _parse_knowledge_base(raw.get("knowledge_base", {}))
     delivery_channels = _parse_delivery(raw.get("delivery", {}))
     schedule = _parse_schedule(raw.get("schedule", {}))
     anthropic_api_key = _optional_str(raw.get("anthropic_api_key")) or os.environ.get(
@@ -188,6 +241,10 @@ def _parse_config(raw: dict[str, Any], path: Path) -> PaperScoutConfig:
         profile=profile,
         arxiv=arxiv,
         scoring=scoring,
+        analysis=analysis,
+        watchlist=watchlist,
+        alerts=alerts,
+        knowledge_base=knowledge_base,
         delivery_channels=delivery_channels,
         schedule=schedule,
         anthropic_api_key=anthropic_api_key,
@@ -309,6 +366,139 @@ def _parse_scoring(section: Any) -> ScoringConfig:
     )
 
 
+def _parse_analysis(section: Any) -> AnalysisConfig:
+    section_dict = _ensure_dict(section, "analysis")
+    defaults = AnalysisConfig()
+
+    model = (
+        _optional_str(section_dict.get("model"))
+        or _optional_str(section_dict.get("analysis_model"))
+        or defaults.model
+    )
+
+    temperature_value = section_dict.get(
+        "temperature",
+        section_dict.get("analysis_temperature", defaults.temperature),
+    )
+
+    return AnalysisConfig(
+        deep_read_count=_as_int(
+            section_dict.get("deep_read_count", defaults.deep_read_count),
+            "analysis.deep_read_count",
+            min_value=1,
+            max_value=50,
+        ),
+        model=model,
+        temperature=_as_float(
+            temperature_value,
+            "analysis.temperature",
+            min_value=0.0,
+            max_value=1.0,
+        ),
+        max_output_tokens=_as_int(
+            section_dict.get("max_output_tokens", defaults.max_output_tokens),
+            "analysis.max_output_tokens",
+            min_value=512,
+        ),
+        max_agent_turns=_as_int(
+            section_dict.get("max_agent_turns", defaults.max_agent_turns),
+            "analysis.max_agent_turns",
+            min_value=1,
+            max_value=50,
+        ),
+    )
+
+
+def _parse_watchlist(section: Any) -> WatchlistConfig:
+    section_dict = _ensure_dict(section, "watchlist")
+
+    organizations_raw = section_dict.get("organizations", [])
+    if organizations_raw is None:
+        organizations_raw = []
+    if not isinstance(organizations_raw, list):
+        raise ConfigError("watchlist.organizations must be a list.")
+
+    authors_raw = section_dict.get("authors", [])
+    if authors_raw is None:
+        authors_raw = []
+    if not isinstance(authors_raw, list):
+        raise ConfigError("watchlist.authors must be a list.")
+
+    organizations = [
+        _parse_watchlist_org(item, index) for index, item in enumerate(organizations_raw)
+    ]
+    authors = [
+        _as_non_empty_str(author, f"watchlist.authors[{index}]")
+        for index, author in enumerate(authors_raw)
+    ]
+
+    return WatchlistConfig(organizations=organizations, authors=authors)
+
+
+def _parse_watchlist_org(section: Any, index: int) -> WatchlistOrgConfig:
+    field_prefix = f"watchlist.organizations[{index}]"
+    section_dict = _require_dict(section, field_prefix)
+
+    name = _as_non_empty_str(section_dict.get("name"), f"{field_prefix}.name")
+    aliases_raw = section_dict.get("aliases", [name])
+
+    if not isinstance(aliases_raw, list):
+        raise ConfigError(f"{field_prefix}.aliases must be a list of strings.")
+
+    aliases = [
+        _as_non_empty_str(alias, f"{field_prefix}.aliases[{alias_index}]")
+        for alias_index, alias in enumerate(aliases_raw)
+    ]
+    if name not in aliases:
+        aliases.insert(0, name)
+
+    return WatchlistOrgConfig(
+        name=name,
+        aliases=_dedupe_preserve_order(aliases),
+        always_include=_as_bool(
+            section_dict.get("always_include", True), f"{field_prefix}.always_include"
+        ),
+    )
+
+
+def _parse_alerts(section: Any) -> AlertConfig:
+    section_dict = _ensure_dict(section, "alerts")
+    defaults = AlertConfig()
+
+    return AlertConfig(
+        enabled=_as_bool(section_dict.get("enabled", defaults.enabled), "alerts.enabled"),
+        score_threshold=_as_float(
+            section_dict.get("score_threshold", defaults.score_threshold),
+            "alerts.score_threshold",
+            min_value=1.0,
+            max_value=10.0,
+        ),
+        watchlist_score_threshold=_as_float(
+            section_dict.get(
+                "watchlist_score_threshold", defaults.watchlist_score_threshold
+            ),
+            "alerts.watchlist_score_threshold",
+            min_value=1.0,
+            max_value=10.0,
+        ),
+        channel=_optional_str(section_dict.get("channel")) or defaults.channel,
+    )
+
+
+def _parse_knowledge_base(section: Any) -> KnowledgeBaseConfig:
+    section_dict = _ensure_dict(section, "knowledge_base")
+    defaults = KnowledgeBaseConfig()
+
+    return KnowledgeBaseConfig(
+        path=_optional_str(section_dict.get("path")) or defaults.path,
+        max_topic_references=_as_int(
+            section_dict.get("max_topic_references", defaults.max_topic_references),
+            "knowledge_base.max_topic_references",
+            min_value=1,
+        ),
+    )
+
+
 def _parse_delivery(section: Any) -> list[DeliveryChannelConfig]:
     section_dict = _ensure_dict(section, "delivery")
     channels_raw = section_dict.get("channels")
@@ -334,7 +524,9 @@ def _parse_delivery_channel(section: Any, index: int) -> DeliveryChannelConfig:
     from_address = _optional_str(section_dict.get("from_address")) or _optional_str(
         section_dict.get("from")
     )
-    to_address = _optional_str(section_dict.get("to_address")) or _optional_str(section_dict.get("to"))
+    to_address = _optional_str(section_dict.get("to_address")) or _optional_str(
+        section_dict.get("to")
+    )
 
     config = DeliveryChannelConfig(
         type=channel_type,
@@ -390,8 +582,17 @@ def _parse_delivery_channel(section: Any, index: int) -> DeliveryChannelConfig:
 def _parse_schedule(section: Any) -> ScheduleConfig:
     section_dict = _ensure_dict(section, "schedule")
     defaults = ScheduleConfig()
-    cron = _optional_str(section_dict.get("cron")) or defaults.cron
-    return ScheduleConfig(cron=cron)
+
+    legacy_cron = _optional_str(section_dict.get("cron"))
+    scoring_cron = _optional_str(section_dict.get("scoring_cron")) or legacy_cron or defaults.scoring_cron
+    digest_cron = _optional_str(section_dict.get("digest_cron")) or defaults.digest_cron
+    cron = legacy_cron or scoring_cron
+
+    return ScheduleConfig(
+        cron=cron,
+        scoring_cron=scoring_cron,
+        digest_cron=digest_cron,
+    )
 
 
 def _require_dict(value: Any, field_name: str) -> dict[str, Any]:
@@ -431,8 +632,6 @@ def _as_int(
     min_value: int | None = None,
     max_value: int | None = None,
 ) -> int:
-    # Reject booleans explicitly since bool is a subclass of int in Python.
-    # YAML true/false would otherwise silently map to 1/0 for integer fields.
     if isinstance(value, bool):
         raise ConfigError(f"{field_name} must be an integer, not a boolean.")
 
@@ -480,3 +679,14 @@ def _as_bool(value: Any, field_name: str) -> bool:
         if normalized in {"false", "0", "no", "n", "off"}:
             return False
     raise ConfigError(f"{field_name} must be a boolean.")
+
+
+def _dedupe_preserve_order(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
