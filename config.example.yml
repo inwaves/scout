@@ -123,7 +123,7 @@ delivery:
       smtp_username: "${SMTP_USERNAME}"
       smtp_password: "${SMTP_PASSWORD}"
       from: "${SMTP_USERNAME}"
-      to: "${SMTP_USERNAME}"
+      to: "${SCOUT_SEND_TO}"
       subject_template: "Scout Digest — {date} ({count} papers)"
     - type: "markdown"
       output_dir: "./digests"
