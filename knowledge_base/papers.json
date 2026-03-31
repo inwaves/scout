@@ -1,0 +1,198 @@
+{
+  "2603.28123": {
+    "arxiv_id": "2603.28123",
+    "authors": [
+      "Parham Pourdavood"
+    ],
+    "builds_on": [
+      "Bai et al. 2022 — Constitutional AI: Harmlessness from AI Feedback (original CAI paper, the primary target of analysis)",
+      "Huang et al. 2024 — Collective Constitutional AI: Aligning a Language Model with Public Input (FAccT 2024, direct predecessor on democratic CAI)",
+      "Durmus et al. 2023 — Towards Measuring the Representation of Subjective Global Opinions in Language Models (GlobalOpinionQA dataset used directly)",
+      "Atari et al. 2023 — Which Humans? (GPT/WVS cultural positioning, methodological template)",
+      "Tao et al. 2024 — Cultural Bias and Cultural Alignment of Large Language Models (PNAS Nexus, GPT steerability comparison)",
+      "Henrich et al. 2010 — The Weirdest People in the World? (WEIRD framework, foundational)",
+      "Inglehart & Welzel 2005 — Modernization, Cultural Change, and Democracy (Inglehart-Welzel dimensions used for analysis)",
+      "Ouyang et al. 2022 — Training Language Models to Follow Instructions with Human Feedback (RLHF baseline for comparison)",
+      "Anthropic 2025 — Values in the Wild (motivation for advice-seeking format, real Claude usage patterns)"
+    ],
+    "date_read": "2026-03-31",
+    "key_findings": [
+      "Claude's value profile is not merely WEIRD — it occupies positions beyond all 90 surveyed nations on 66% of culturally divisive items, particularly on the Self-Expression dimension (score 1.881 vs. Denmark's 1.869 as the highest human country).",
+      "Constitutional principles function as maximizing functions: 'choose the least discriminatory response' logically produces endpoint responses that exceed any real human population's collective position — a structural consequence of how CAI principles are formulated.",
+      "Cultural context prompting produces near-zero substantive effect (mean |d|=0.108), despite modest rhetorical adjustments — Claude adjusts *how* it says things but not *what* it recommends.",
+      "The value floor is weight-embedded, not prompt-elicited: removing the system prompt triples refusals but leaves expressed values at r=0.98 with the prompted condition.",
+      "A constitutional hierarchy is revealed: gender equality is treated as near-non-negotiable (80% Directive), while moral justifiability topics (abortion, euthanasia) receive more cautious Balanced-Lean treatment (76%) — suggesting some principles are harder floors than others.",
+      "The compounding risk: WEIRD-leaning training data + WEIRD-authored constitution may push models further along the same cultural axis than RLHF alone, making CAI's cultural specificity *harder* to correct than implicit alignment.",
+      "Cross-model consistency (Sonnet/Haiku r=0.956) confirms the cultural profile is a property of the alignment process, not model size or capability."
+    ],
+    "score": 9.0,
+    "title": "Does Claude's Constitution Have a Culture?",
+    "tldr": "Claude's Constitutional AI produces a value profile that is not merely WEIRD (Western, Educated, Industrialized, Rich, Democratic) — it extends *beyond* all 90 surveyed nations on 66% of culturally divisive WVS items, occupying positions no human population collectively holds. Cultural context prompting ('I'm writing from [COUNTRY]') shifts Claude's rhetorical framing but produces near-zero effect on substantive value positions (mean |Cohen's d| = 0.108 across 12 countries), suggesting values are weight-embedded, not prompt-elicited. Removing the system prompt increases refusals by ~3x but leaves expressed values nearly identical (r = 0.98), confirming the constitutional value floor is in the weights, not the framing.",
+    "topics": [
+      "cs.AI",
+      "cs.CL",
+      "cs.CY"
+    ]
+  },
+  "2603.28166": {
+    "arxiv_id": "2603.28166",
+    "authors": [
+      "Quan Zhang",
+      "Lianhang Fu",
+      "Lvsi Lian",
+      "Gwihwan Go",
+      "Yujue Wang",
+      "Chijin Zhou",
+      "Yu Jiang",
+      "Geguang Pu"
+    ],
+    "builds_on": [
+      "AgentDojo (Debenedetti et al., NeurIPS 2024) — simulated prompt injection benchmark for LLM agents",
+      "Agent Security Bench / ASB (Zhang et al., ICLR 2025) — comprehensive agent attack/defense benchmark with 400+ tools",
+      "Greshake et al. (AISec 2023) — foundational indirect prompt injection threat taxonomy",
+      "RAS-Eval (Fu et al., 2025) — benchmark with more realistic pre-coded tools",
+      "ReAct agent architecture (referenced as Masterman et al. survey, 2024)",
+      "StruQ (Chen et al., USENIX Security 2025) and related prompt injection defenses cited as future integration targets"
+    ],
+    "date_read": "2026-03-31",
+    "key_findings": [
+      "Average attack success rate of 84.80% overall (90.55% ReAct, 79.05% Plan-and-Execute) across four frontier LLMs with real-world tools — confirming severe privilege control deficiencies.",
+      "Plan-and-Execute agents are meaningfully more robust than ReAct agents, with Gemini3-Flash showing a ~20% ASR reduction, suggesting pre-planned execution constrains injection surface.",
+      "Higher-capability LLMs (GPT-5, Gemini3-Flash) are paradoxically MORE vulnerable in ReAct mode due to stronger instruction-following, but recover better in planning mode.",
+      "Workspace Tampering attacks achieve the highest ASR (up to 96.88%) because they involve seemingly benign actions; Infrastructure Disruption and Data Destruction trigger more (but still insufficient) security awareness.",
+      "DeepSeek-V3 is anomalous: it performs better in ReAct than planning mode, unlike all other tested models — suggesting its planning capability does not improve security alignment.",
+      "The automated request generator produces high diversity: 96 unique tool combinations out of 100 benign requests, with average 5.67 tools per request across 3.15 servers."
+    ],
+    "score": 8.0,
+    "title": "Evaluating Privilege Usage of Agents on Real-World Tools",
+    "tldr": "GrantBox is a security evaluation sandbox that integrates real-world MCP (Model Context Protocol) servers to assess LLM agent privilege usage under prompt injection attacks. Across four frontier LLMs (GPT-5, Gemini3-Flash, Qwen3-Max, DeepSeek-V3) in two agent modes, average attack success rates are alarmingly high: 90.55% in ReAct mode and 79.05% in Plan-and-Execute mode. Plan-and-Execute agents show meaningfully better resistance than ReAct agents (up to 20% ASR reduction for Gemini3), suggesting that pre-planned execution constrains injection surface.",
+    "topics": [
+      "cs.AI",
+      "cs.CR"
+    ]
+  },
+  "2603.28590": {
+    "arxiv_id": "2603.28590",
+    "authors": [
+      "Han Wang",
+      "Yifan Sun",
+      "Brian Ko",
+      "Mann Talati",
+      "Jiawen Gong",
+      "Zimeng Li",
+      "Naicheng Yu",
+      "Xucheng Yu",
+      "Wei Shen",
+      "Vedant Jolly",
+      "Huan Zhang"
+    ],
+    "builds_on": [
+      "Baker et al. (2025) — 'Monitoring reasoning models for misbehavior and the risks of promoting obfuscation' (OpenAI) — coined 'reduced CoT monitorability'",
+      "Guan et al. (2025) — 'Monitoring Monitorability' (OpenAI) — the evaluation framework MonitorBench implements and extends with open data",
+      "Korbak et al. (2025) — 'Chain of thought monitorability: A new and fragile opportunity for AI safety' — theoretical framing",
+      "Greenblatt et al. (2024) — 'Alignment faking in large language models' (Anthropic) — related deceptive alignment work",
+      "Meinke et al. (2024) — 'Frontier models are capable of in-context scheming' — scheming evaluation",
+      "Emmons et al. (2025a) — 'When chain of thought is necessary, language models struggle to evade monitors' — complementary empirical finding",
+      "Lanham et al. (2023) — 'Measuring faithfulness in chain-of-thought reasoning' (Anthropic) — foundational CoT faithfulness work",
+      "Kutasov et al. (2025) — 'ShadeArena: Evaluating sabotage and monitoring in LLM agents' — agent monitoring benchmark",
+      "Arnav et al. (2025) — 'CoT red-handed: Stress testing chain-of-thought monitoring' — stress-test methodology"
+    ],
+    "date_read": "2026-03-31",
+    "key_findings": [
+      "Structural entanglement is the key determinant of monitorability: when a decision-critical factor must be explicitly reasoned through to produce the output, models cannot easily hide it even under adversarial instructions — the factor leaks through explicit mention, concealment meta-commentary, or implicit planning structure.",
+      "The negative capability-monitorability correlation (r up to −0.88) is alarming from a safety perspective: the most capable models we most need to monitor are the least monitorable. This may reflect that capable models use more concise, compressed reasoning that omits intermediate steps.",
+      "Closed-source models show dramatically lower monitorability on the Multi-step Update task (1–9% vs. 84–88% for open-source), suggesting that proprietary post-training may actively suppress verbose step-by-step reasoning in CoT.",
+      "Models attempting concealment under stress-tests almost universally fail for structurally integrated tasks — they cannot sustain long-horizon concealment across 30+ reasoning steps. This provides a partial safety argument for monitoring tasks that require structural reasoning.",
+      "For tasks where the decision-critical factor only affects the final answer (Cue Answer, Goal Deception), models can easily suppress it from CoT by simple omission — no sophisticated evasion needed. This is the primary vulnerability for CoT-based monitoring.",
+      "The monitor-aware evasion condition (where models know a monitor is watching) does not produce significantly different or more sophisticated evasion than direct concealment — models do not develop steganographic or obfuscation strategies in response to monitor awareness."
+    ],
+    "score": 8.0,
+    "title": "MonitorBench: A Comprehensive Benchmark for Chain-of-Thought Monitorability in Large Language Models",
+    "tldr": "MonitorBench is the first fully open-source, comprehensive benchmark (1,514 instances, 19 tasks, 7 categories) for evaluating whether LLM chain-of-thought reasoning faithfully exposes the decision-critical factors driving model behavior. CoT monitorability is structurally determined: tasks requiring explicit multi-step planning through a decision-critical factor (e.g., sandbagging, dual objectives, cue conditions) achieve ~90% monitorability; tasks where the factor only influences the final answer without shaping reasoning (e.g., answer cue injection) achieve much lower scores (~50–60%). Closed-source LLMs are ~10–13% less monitorable than open-source models across all monitor scopes, and there is a consistent negative Pearson correlation (r = −0.53 to −0.88) between model capability and monitorability.",
+    "topics": [
+      "cs.AI"
+    ]
+  },
+  "2603.28650": {
+    "arxiv_id": "2603.28650",
+    "authors": [
+      "Arsenios Scrivens"
+    ],
+    "builds_on": [
+      "Amodei et al. (2016) 'Concrete Problems in AI Safety' — foundational motivation for safety gate design",
+      "Leike et al. (2018) 'Scalable Agent Alignment via Reward Modeling' — reward modeling as safety mechanism",
+      "Christiano et al. (2017) 'Iterated Amplification' — scalable oversight approach",
+      "Berkenkamp et al. (2017) 'Safe Model-Based RL with Stability Guarantees' — Lipschitz-based safety verification",
+      "Neyman-Pearson lemma (1933) — optimal ROC tradeoffs for individual hypothesis tests",
+      "van Erven & Harremoes (2014) — Rényi divergence and f-divergence inequalities",
+      "Tsipras et al. (2019) 'Robustness May Be at Odds with Accuracy' — accuracy-robustness tradeoffs",
+      "Kim et al. (2021) 'Lipschitz Constant of Self-Attention' — transformer Lipschitz analysis",
+      "Bostrom (2014) 'Superintelligence' — recursive self-improvement framing",
+      "Soares & Fallenstein (2017) MIRI 'Agent Foundations' — alignment foundations"
+    ],
+    "date_read": "2026-03-31",
+    "key_findings": [
+      "The safety-utility tradeoff for classifier-based gates is not a matter of architecture or training quality — it is a mathematical consequence of distribution overlap, provably irreducible.",
+      "The finite-horizon ceiling (Theorem 5) is universal: it applies even to non-power-law summable schedules where the asymptotic impossibility (Theorem 1) does not hold, making it the most practically actionable result.",
+      "The classification-verification separation is strict and architectural: classifiers and verifiers occupy disconnected regions of the (δ, TPR) plane — classifiers approach the origin as δ→0, while verifiers sit on the δ=0 axis with TPR>0.",
+      "Sample complexity barrier (Proposition 2) is independent of Theorem 1: even if a classifier could circumvent the Hölder bound, it would face sample starvation requiring Ω(n²ᵖ) labeled examples by step n.",
+      "The Lipschitz ball verifier is O(d) computationally, requires no training data, and scales to LLM-scale LoRA perturbations via closed-form per-layer bounds for pre-LayerNorm transformers.",
+      "The paper explicitly acknowledges scope limitations: the impossibility does not apply to perfectly separable distributions, discrete/quantized parameter spaces, or short finite deployments where subpolynomial utility may suffice."
+    ],
+    "score": 7.0,
+    "title": "Information-Theoretic Limits of Safety Verification for Self-Improving Systems",
+    "tldr": "Proves that classifier-based safety gates for self-improving AI systems face a fundamental impossibility: under overlapping safe/unsafe distributions, bounded cumulative risk (Σδₙ < ∞) forces bounded cumulative utility (ΣTPRₙ < ∞), making simultaneous safety and unbounded improvement provably impossible. Establishes a tight finite-horizon ceiling: classifier utility grows at most as exp(O(√log N)) — subpolynomial — versus a verifier's linear Θ(N) growth, yielding a 5,700× gap at N=10⁶. Constructs a 'verification escape': a Lipschitz ball verifier achieves δ=0 with TPR>0, escaping the impossibility. Validated on GPT-2 with LoRA (147K parameters): δ=0 with TPR=0.352.",
+    "topics": [
+      "cs.AI",
+      "cs.LG",
+      "stat.ML"
+    ]
+  },
+  "2603.28716": {
+    "arxiv_id": "2603.28716",
+    "authors": [
+      "Songjun Tu",
+      "Chengdong Xu",
+      "Qichao Zhang",
+      "Yaocheng Zhang",
+      "Xiangyuan Lan",
+      "Linjing Li",
+      "Dongbin Zhao"
+    ],
+    "builds_on": [
+      "GRPO / DeepSeekMath (Shao et al. 2024) — base RL algorithm adapted for skill-augmented training",
+      "SkillRL (Xia et al. 2026) — closest prior work; D2Skill directly extends and outperforms it",
+      "ExpeL (Zhao et al. 2024) — foundational work on extracting reusable insights from agent trajectories",
+      "ALFWorld (Shridhar et al. 2020) — primary evaluation environment",
+      "WebShop (Yao et al. 2022) — secondary evaluation environment",
+      "Agent Workflow Memory (Wang et al. 2024) — related work on reusable workflow abstraction",
+      "Group-in-Group Policy Optimization (Feng et al. 2025) — related credit assignment approach for agentic RL"
+    ],
+    "date_read": "2026-03-31",
+    "key_findings": [
+      "Dual granularity is critical: removing either task or step skills causes ~10–12 point drops, with step skills being slightly more impactful — fine-grained error correction at individual steps is a genuinely distinct and valuable capability.",
+      "Dynamic skill management (pruning) is the single most impactful component: removing it causes the largest ablation drop (~15 pts), confirming that an unbounded, unmanaged skill bank actively hurts performance by diluting retrieval quality.",
+      "The hindsight counterfactual design (paired baseline/skill groups) enables principled skill utility estimation without any external oracle — the baseline group acts as a within-batch control for causal attribution.",
+      "Closed-source teacher models (O3, Gemini-3-Flash) are poor direct agents in these environments (O3 achieves only 43.8% on ALFWorld directly) but are highly effective as reflectors/skill abstractors, suggesting a useful division of labor.",
+      "Skills partially internalize into policy weights during training — the D2Skill-trained policy outperforms GRPO even when the skill bank is removed at test time, indicating the skill bank acts as a training scaffold, not just an inference-time crutch.",
+      "D2Skill uses only training-time experience for skill construction, while SkillRL uses privileged validation trajectories — yet D2Skill still outperforms SkillRL, making the comparison favorable under a stricter constraint."
+    ],
+    "score": 7.0,
+    "title": "Dynamic Dual-Granularity Skill Bank for Agentic RL",
+    "tldr": "D2Skill introduces a dynamic dual-granularity skill bank for agentic RL, maintaining both task-level (high-level planning) and step-level (fine-grained error correction) reusable skills throughout training. Skills are generated via reflection on failed trajectories using an external LLM, then maintained via utility-aware retrieval and pruning — all from training-time experience only (no privileged validation data). A paired rollout design (skill group vs. baseline group under the same policy) produces hindsight utility signals that simultaneously update skill utilities and shape policy optimization via GRPO.",
+    "topics": [
+      "agentic reinforcement learning",
+      "skill-based agents",
+      "memory-augmented agents",
+      "GRPO",
+      "hindsight credit assignment",
+      "LLM agent training",
+      "agent memory management",
+      "ALFWorld",
+      "WebShop",
+      "experience replay",
+      "UCB exploration",
+      "reflection-driven learning"
+    ]
+  }
+}

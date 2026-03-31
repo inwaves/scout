@@ -31,21 +31,26 @@ class ArxivFetcher:
         self._logger = logger or LOGGER
 
     def fetch_new_papers(self, since: datetime) -> list[Paper]:
-        """
-        Fetch papers newer than `since` and deduplicate across watched categories.
-        """
         since_utc = since.astimezone(timezone.utc) if since.tzinfo else since.replace(
             tzinfo=timezone.utc
         )
         deduped: dict[str, Paper] = {}
 
         for index, category in enumerate(self.config.categories):
+            if index > 0 and self.config.query_pause_seconds > 0:
+                self._logger.info(
+                    "Pausing %.0fs before fetching next category...",
+                    self.config.query_pause_seconds,
+                )
+                time.sleep(self.config.query_pause_seconds)
+
             try:
                 entries = self._fetch_category_entries(category)
             except Exception as exc:
                 self._logger.error("Failed to fetch category %s: %s", category, exc)
                 continue
 
+            count_before = len(deduped)
             for entry in entries:
                 paper = self._parse_entry(entry, fallback_category=category)
                 if paper is None:
@@ -61,8 +66,13 @@ class ArxivFetcher:
                 else:
                     deduped[paper.arxiv_id] = paper
 
-            if index < len(self.config.categories) - 1 and self.config.query_pause_seconds > 0:
-                time.sleep(self.config.query_pause_seconds)
+            new_count = len(deduped) - count_before
+            self._logger.info(
+                "Category %s: %d entries returned, %d new unique papers.",
+                category,
+                len(entries),
+                new_count,
+            )
 
         papers = sorted(deduped.values(), key=lambda item: item.published, reverse=True)
         self._logger.info(
@@ -79,20 +89,18 @@ class ArxivFetcher:
 
         for attempt in range(1, self.config.max_retries + 1):
             try:
-                # Fetch raw XML via urllib with configurable timeout, then
-                # pass the content to feedparser for parsing. This ensures
-                # request_timeout_seconds is actually enforced (feedparser's
-                # own parse(url) does not accept a timeout parameter).
                 request = urllib.request.Request(
                     url,
-                    headers={"User-Agent": "paper-scout/0.1 (+https://arxiv.org)"},
+                    headers={"User-Agent": "scout/0.2 (research digest; polite; +https://github.com/inwaves/scout)"},
                 )
                 with urllib.request.urlopen(
                     request, timeout=self.config.request_timeout_seconds
                 ) as response:
                     status = response.status
                     if status >= 400:
-                        raise ArxivFetchError(f"HTTP status {status} from arXiv.")
+                        raise urllib.error.HTTPError(
+                            url, status, f"HTTP {status}", {}, None
+                        )
                     raw_xml = response.read()
 
                 feed = feedparser.parse(raw_xml)
@@ -107,15 +115,34 @@ class ArxivFetcher:
                     )
 
                 return list(feed.entries)
-            except ArxivFetchError:
-                raise
+
+            except urllib.error.HTTPError as exc:
+                last_error = exc
+                if attempt >= self.config.max_retries:
+                    break
+                # For 429 rate limiting, use longer waits
+                if exc.code == 429:
+                    sleep_seconds = self.config.retry_backoff_seconds * attempt * 2
+                else:
+                    sleep_seconds = self.config.retry_backoff_seconds * attempt
+                sleep_seconds = min(120.0, sleep_seconds)
+                self._logger.warning(
+                    "Fetch attempt %d/%d failed for category %s: HTTP %s (retry in %.0fs)",
+                    attempt,
+                    self.config.max_retries,
+                    category,
+                    exc.code,
+                    sleep_seconds,
+                )
+                time.sleep(sleep_seconds)
+
             except Exception as exc:
                 last_error = exc
                 if attempt >= self.config.max_retries:
                     break
-                sleep_seconds = self.config.retry_backoff_seconds * attempt
+                sleep_seconds = min(120.0, self.config.retry_backoff_seconds * attempt)
                 self._logger.warning(
-                    "Fetch attempt %d/%d failed for category %s: %s (retry in %.1fs)",
+                    "Fetch attempt %d/%d failed for category %s: %s (retry in %.0fs)",
                     attempt,
                     self.config.max_retries,
                     category,
@@ -125,7 +152,7 @@ class ArxivFetcher:
                 time.sleep(sleep_seconds)
 
         raise ArxivFetchError(
-            f"Failed to fetch arXiv feed for category {category}: {last_error}"
+            f"Failed to fetch arXiv feed for category {category} after {self.config.max_retries} attempts: {last_error}"
         )
 
     def _build_query_url(self, category: str) -> str:
