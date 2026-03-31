@@ -141,6 +141,9 @@ class DeepReadAgent:
             "- Be explicit about uncertainty when data is missing.\n\n"
             "When you are ready, CALL produce_deep_read exactly once with the complete structured output.\n"
             "Do not return final prose only; finalize via produce_deep_read.\n\n"
+            "IMPORTANT for builds_on: include arXiv IDs where you know them, formatted as:\n"
+            "  'Author et al. YEAR — Short description (arXiv:XXXX.XXXXX)'\n"
+            "If you do not know the arXiv ID, just use the author/year/description format.\n\n"
             f"Research profile: {self.profile.name}\n"
             f"Profile description:\n{self.profile.description}\n\n"
             f"Scoring rubric:\n{self.profile.scoring_rubric}\n"
@@ -423,7 +426,7 @@ def _build_tools() -> list[dict[str, Any]]:
                     "relevance": {"type": "string"},
                     "topics": {"type": "array", "items": {"type": "string"}},
                     "key_findings": {"type": "array", "items": {"type": "string"}},
-                    "builds_on": {"type": "array", "items": {"type": "string"}},
+                    "builds_on": {"type": "array", "items": {"type": "string"}, "description": "Prior work this paper builds on. Include arXiv IDs where known, e.g. 'Perez et al. 2022 — Sycophancy (arXiv:2212.09251)'"},
                     "watchlist_match": {"type": "string"},
                 },
                 "required": [
