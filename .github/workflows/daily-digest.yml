@@ -70,16 +70,16 @@ jobs:
           MODE="${{ steps.mode.outputs.mode }}"
           case "$MODE" in
             daily)
-              python -m paper_scout -v run
+              python -m paper_scout --config config.example.yml -v run
               ;;
             weekly)
-              python -m paper_scout -v run --weekly
+              python -m paper_scout --config config.example.yml -v run --weekly
               ;;
             daily-dry-run)
-              python -m paper_scout -v run --dry-run
+              python -m paper_scout --config config.example.yml -v run --dry-run
               ;;
             weekly-dry-run)
-              python -m paper_scout -v run --weekly --dry-run
+              python -m paper_scout --config config.example.yml -v run --weekly --dry-run
               ;;
           esac
 

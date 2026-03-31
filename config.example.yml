@@ -1,51 +1,68 @@
-# Scout — Example Configuration
-# Copy this file to scout.yml and customize your research profile.
+# Scout — Configuration
+# Customize your research profile, categories, and watchlist below.
 
 anthropic_api_key: "${ANTHROPIC_API_KEY}"
 state_file: "./last_run.json"
 
 profile:
-  name: "ML/AI Agents Research"
+  name: "AI Safety & Agents Research"
   description: |
-    I am a researcher focused on autonomous AI agents, particularly:
+    I am a researcher focused on AI safety and autonomous AI agents.
 
     HIGH INTEREST:
+    - AI safety, alignment, and controllability (especially from Anthropic,
+      OpenAI, Google DeepMind, and other leading safety labs)
+    - Constitutional AI, RLHF, RLAIF, reward modeling, and safe training methods
     - Agent architectures (planning, reasoning, memory, tool use)
     - Multi-agent systems and collaboration
     - LLM-based agents for software engineering and coding
     - Agent evaluation, benchmarks, and failure modes
-    - Reinforcement learning for agent training (RLHF, RLAIF, reward modeling)
-    - Agent safety, alignment, and controllability
+    - Interpretability and mechanistic understanding of neural networks
+    - Scalable oversight, debate, and recursive reward modeling
+    - Red-teaming, adversarial robustness, and jailbreak resistance
 
     MODERATE INTEREST:
     - Foundation model training and scaling (pre-training, post-training)
     - Retrieval-augmented generation (RAG) architectures
-    - Prompt engineering and in-context learning
     - Inference optimization (KV cache, speculative decoding, quantization)
+    - Prompt engineering and in-context learning
+    - Governance and policy frameworks for AI safety
 
     LOW INTEREST (only if groundbreaking):
     - Applications of existing AI to specific domains (medical, legal, etc.)
-    - Pure computer vision without agent/reasoning components
+    - Pure computer vision without agent/reasoning/safety components
     - Speech and audio models
     - Robotics hardware
 
+    PRIORITY AUTHORS/ORGANIZATIONS (boost score for papers from these):
+    - Anthropic (Dario Amodei, Chris Olah, Jan Leike, et al.)
+    - OpenAI (safety team publications)
+    - Google DeepMind (safety and alignment research)
+    - ARC (Alignment Research Center)
+    - MIRI (Machine Intelligence Research Institute)
+    - Redwood Research
+    - Center for AI Safety (CAIS)
+
   scoring_rubric: |
     Score each paper 1-10 based on:
-    - 9-10: Directly advances agent architectures, multi-agent systems,
+    - 9-10: Directly advances AI safety, alignment, agent architectures,
             or agent training. Novel contribution I would want to read today.
+            Papers from Anthropic, OpenAI, or DeepMind on safety topics
+            should get a score boost.
     - 7-8:  Relevant to my core interests. Noteworthy technique or result
-            that connects to agent research.
+            that connects to safety or agent research.
     - 5-6:  Tangentially related. Interesting but not directly in my lane.
     - 3-4:  Only loosely connected to my interests.
     - 1-2:  Not relevant.
 
 arxiv:
   categories:
-    - "cs.AI"
-    - "cs.MA"
-    - "cs.CL"
-    - "cs.LG"
-    - "cs.SE"
+    - "cs.AI"    # Artificial Intelligence
+    - "cs.MA"    # Multi-Agent Systems
+    - "cs.CL"    # Computation and Language
+    - "cs.LG"    # Machine Learning
+    - "cs.SE"    # Software Engineering (for coding agents)
+    - "cs.CR"    # Cryptography and Security (for adversarial/red-teaming)
   max_results_per_category: 200
   lookback_hours: 28
   max_retries: 3
@@ -57,66 +74,52 @@ scoring:
   batch_size: 10
   threshold: 7
   max_papers: 15
-  use_batch_api: true
+  use_batch_api: false
   temperature: 0.0
   max_output_tokens: 4096
   batch_poll_interval_seconds: 5
   batch_poll_timeout_seconds: 1800
   summary_words: 150
 
-# v2: Agentic deep read analysis of top papers
 analysis:
-  deep_read_count: 5              # Papers to analyze in depth per weekly run
-  model: "claude-sonnet-4-6"      # Model for deep reads
-  temperature: 0.2                # Slightly creative for prose quality
+  deep_read_count: 5
+  model: "claude-sonnet-4-6"
+  temperature: 0.2
   max_output_tokens: 8192
-  max_agent_turns: 10             # Max tool-use turns per paper
+  max_agent_turns: 10
 
-# v2: Author/org watchlist — always surface matching papers
 watchlist:
   organizations:
     - name: "Anthropic"
-      aliases: ["Anthropic"]
+      aliases: ["Anthropic", "anthropic.com"]
       always_include: true
     - name: "OpenAI"
-      aliases: ["OpenAI"]
+      aliases: ["OpenAI", "openai.com"]
       always_include: true
     - name: "Google DeepMind"
-      aliases: ["Google DeepMind", "DeepMind"]
+      aliases: ["Google DeepMind", "DeepMind", "Google Brain", "deepmind.com"]
       always_include: true
-  authors: []
-    # - "Author Name"
+  authors:
+    - "Sam Bowman"
+    - "Ethan Perez"
+    - "Evan Hubinger"
+    - "Owain Evans"
 
-# v2: Hot alerts for exceptional papers
 alerts:
   enabled: true
-  score_threshold: 9              # Alert if score >= 9
-  watchlist_score_threshold: 8    # Alert if watchlist org + score >= 8
-  channel: "email"
+  score_threshold: 9
+  watchlist_score_threshold: 8
 
-# v2: Persistent knowledge base
 knowledge_base:
   path: "./knowledge_base"
   max_topic_references: 50
 
 delivery:
   channels:
-    # - type: "email"
-    #   smtp_host: "smtp.gmail.com"
-    #   smtp_port: 587
-    #   smtp_username: "${SMTP_USERNAME}"
-    #   smtp_password: "${SMTP_PASSWORD}"
-    #   from: "scout@yourdomain.com"
-    #   to: "you@yourdomain.com"
-    #   subject_template: "Scout Digest — {date} ({count} papers)"
-    # - type: "slack"
-    #   webhook_url: "${SLACK_WEBHOOK_URL}"
-    # - type: "discord"
-    #   webhook_url: "${DISCORD_WEBHOOK_URL}"
     - type: "markdown"
       output_dir: "./digests"
       filename_template: "scout-{date}.md"
 
 schedule:
-  scoring_cron: "0 7 * * *"      # Daily abstract scoring
-  digest_cron: "0 7 * * 1"       # Weekly digest: Monday 7 AM UTC
+  scoring_cron: "0 7 * * *"
+  digest_cron: "0 7 * * 1"
