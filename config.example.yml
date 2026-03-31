@@ -117,6 +117,14 @@ knowledge_base:
 
 delivery:
   channels:
+    - type: "email"
+      smtp_host: "smtp.gmail.com"
+      smtp_port: 587
+      smtp_username: "${SMTP_USERNAME}"
+      smtp_password: "${SMTP_PASSWORD}"
+      from: "${SMTP_USERNAME}"
+      to: "${SMTP_USERNAME}"
+      subject_template: "Scout Digest — {date} ({count} papers)"
     - type: "markdown"
       output_dir: "./digests"
       filename_template: "scout-{date}.md"
