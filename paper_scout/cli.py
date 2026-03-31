@@ -133,6 +133,15 @@ def run_pipeline(
         knowledge_base=knowledge_base,
     )
 
+    selected_papers_for_s2 = [
+        paper_by_id[s.arxiv_id] for s in selected_scored
+        if s.arxiv_id in paper_by_id and s.arxiv_id not in watchlist_matches
+    ]
+    if selected_papers_for_s2:
+        _enrich_watchlist_with_affiliations(
+            selected_papers_for_s2, watchlist_matches, watchlist_matcher, s2_client,
+        )
+
     deep_entries: list[DeepReadEntry] = []
     noteworthy_scored: list[ScoredPaper] = selected_scored
 
@@ -146,6 +155,11 @@ def run_pipeline(
                 LOGGER.error("Deep read stage requires Anthropic API key.")
                 return 4
 
+            LOGGER.info(
+                "Starting deep reads for %d papers (this may take several minutes).",
+                len(deep_targets),
+            )
+
             deep_reader = DeepReadAgent(
                 api_key=config.anthropic_api_key,
                 profile=config.profile,
@@ -155,15 +169,29 @@ def run_pipeline(
             )
 
             kb_dirty = False
-            for scored_item in deep_targets:
+            for deep_index, scored_item in enumerate(deep_targets, start=1):
                 paper = paper_by_id.get(scored_item.arxiv_id)
                 if paper is None:
                     continue
+
+                LOGGER.info(
+                    "Deep read %d/%d: %s (score=%.1f)",
+                    deep_index,
+                    len(deep_targets),
+                    paper.title[:80],
+                    scored_item.relevance_score,
+                )
 
                 watch_match = watchlist_matches.get(paper.arxiv_id)
                 try:
                     result = deep_reader.analyze_paper(paper, scored_item)
                     entry = result.entry
+                    LOGGER.info(
+                        "Deep read %d/%d complete: %s",
+                        deep_index,
+                        len(deep_targets),
+                        paper.arxiv_id,
+                    )
                 except DeepReadError:
                     LOGGER.exception("Deep read failed for %s", paper.arxiv_id)
                     result = None
@@ -346,17 +374,42 @@ def _match_watchlist_papers(
     s2_client: SemanticScholarClient,
 ) -> dict[str, WatchlistMatch]:
     matches: dict[str, WatchlistMatch] = {}
-    has_org_watchlist = bool(matcher.config.organizations)
 
     for paper in papers:
         match = matcher.match_paper(paper)
         if match:
             matches[paper.arxiv_id] = match
-            continue
 
-        if not has_org_watchlist:
-            continue
+    if matches:
+        LOGGER.info(
+            "Watchlist: %d author-name matches found from %d papers.",
+            len(matches),
+            len(papers),
+        )
 
+    return matches
+
+
+def _enrich_watchlist_with_affiliations(
+    papers: Sequence[Paper],
+    existing_matches: dict[str, WatchlistMatch],
+    matcher: WatchlistMatcher,
+    s2_client: SemanticScholarClient,
+) -> None:
+    """Query S2 for author affiliations on a small set of papers (not all)."""
+    if not matcher.config.organizations:
+        return
+
+    candidates = [p for p in papers if p.arxiv_id not in existing_matches]
+    if not candidates:
+        return
+
+    LOGGER.info(
+        "Watchlist: checking S2 affiliations for %d candidate papers.",
+        len(candidates),
+    )
+
+    for index, paper in enumerate(candidates):
         try:
             affiliations = s2_client.get_author_affiliations(paper.arxiv_id)
         except Exception as exc:
@@ -369,9 +422,12 @@ def _match_watchlist_papers(
 
         match = matcher.match_paper(paper, affiliations=affiliations)
         if match:
-            matches[paper.arxiv_id] = match
-
-    return matches
+            existing_matches[paper.arxiv_id] = match
+            LOGGER.info(
+                "Watchlist: organization match found for %s (%s).",
+                paper.arxiv_id,
+                match.matched_name,
+            )
 
 
 def _select_scored_for_digest(
