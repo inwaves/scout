@@ -66,6 +66,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SCOUT_SEND_TO: ${{ secrets.SCOUT_SEND_TO }}
         run: |
           MODE="${{ steps.mode.outputs.mode }}"
           case "$MODE" in
