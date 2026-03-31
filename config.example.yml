@@ -1,0 +1,122 @@
+# Scout — Example Configuration
+# Copy this file to scout.yml and customize your research profile.
+
+anthropic_api_key: "${ANTHROPIC_API_KEY}"
+state_file: "./last_run.json"
+
+profile:
+  name: "ML/AI Agents Research"
+  description: |
+    I am a researcher focused on autonomous AI agents, particularly:
+
+    HIGH INTEREST:
+    - Agent architectures (planning, reasoning, memory, tool use)
+    - Multi-agent systems and collaboration
+    - LLM-based agents for software engineering and coding
+    - Agent evaluation, benchmarks, and failure modes
+    - Reinforcement learning for agent training (RLHF, RLAIF, reward modeling)
+    - Agent safety, alignment, and controllability
+
+    MODERATE INTEREST:
+    - Foundation model training and scaling (pre-training, post-training)
+    - Retrieval-augmented generation (RAG) architectures
+    - Prompt engineering and in-context learning
+    - Inference optimization (KV cache, speculative decoding, quantization)
+
+    LOW INTEREST (only if groundbreaking):
+    - Applications of existing AI to specific domains (medical, legal, etc.)
+    - Pure computer vision without agent/reasoning components
+    - Speech and audio models
+    - Robotics hardware
+
+  scoring_rubric: |
+    Score each paper 1-10 based on:
+    - 9-10: Directly advances agent architectures, multi-agent systems,
+            or agent training. Novel contribution I would want to read today.
+    - 7-8:  Relevant to my core interests. Noteworthy technique or result
+            that connects to agent research.
+    - 5-6:  Tangentially related. Interesting but not directly in my lane.
+    - 3-4:  Only loosely connected to my interests.
+    - 1-2:  Not relevant.
+
+arxiv:
+  categories:
+    - "cs.AI"
+    - "cs.MA"
+    - "cs.CL"
+    - "cs.LG"
+    - "cs.SE"
+  max_results_per_category: 200
+  lookback_hours: 28
+  max_retries: 3
+  retry_backoff_seconds: 3.0
+  query_pause_seconds: 3.0
+
+scoring:
+  model: "claude-sonnet-4-6"
+  batch_size: 10
+  threshold: 7
+  max_papers: 15
+  use_batch_api: true
+  temperature: 0.0
+  max_output_tokens: 4096
+  batch_poll_interval_seconds: 5
+  batch_poll_timeout_seconds: 1800
+  summary_words: 150
+
+# v2: Agentic deep read analysis of top papers
+analysis:
+  deep_read_count: 5              # Papers to analyze in depth per weekly run
+  model: "claude-sonnet-4-6"      # Model for deep reads
+  temperature: 0.2                # Slightly creative for prose quality
+  max_output_tokens: 8192
+  max_agent_turns: 10             # Max tool-use turns per paper
+
+# v2: Author/org watchlist — always surface matching papers
+watchlist:
+  organizations:
+    - name: "Anthropic"
+      aliases: ["Anthropic"]
+      always_include: true
+    - name: "OpenAI"
+      aliases: ["OpenAI"]
+      always_include: true
+    - name: "Google DeepMind"
+      aliases: ["Google DeepMind", "DeepMind"]
+      always_include: true
+  authors: []
+    # - "Author Name"
+
+# v2: Hot alerts for exceptional papers
+alerts:
+  enabled: true
+  score_threshold: 9              # Alert if score >= 9
+  watchlist_score_threshold: 8    # Alert if watchlist org + score >= 8
+  channel: "email"
+
+# v2: Persistent knowledge base
+knowledge_base:
+  path: "./knowledge_base"
+  max_topic_references: 50
+
+delivery:
+  channels:
+    # - type: "email"
+    #   smtp_host: "smtp.gmail.com"
+    #   smtp_port: 587
+    #   smtp_username: "${SMTP_USERNAME}"
+    #   smtp_password: "${SMTP_PASSWORD}"
+    #   from: "scout@yourdomain.com"
+    #   to: "you@yourdomain.com"
+    #   subject_template: "Scout Digest — {date} ({count} papers)"
+    # - type: "slack"
+    #   webhook_url: "${SLACK_WEBHOOK_URL}"
+    # - type: "discord"
+    #   webhook_url: "${DISCORD_WEBHOOK_URL}"
+    - type: "markdown"
+      output_dir: "./digests"
+      filename_template: "scout-{date}.md"
+
+schedule:
+  scoring_cron: "0 7 * * *"      # Daily abstract scoring
+  digest_cron: "0 7 * * 1"       # Weekly digest: Monday 7 AM UTC

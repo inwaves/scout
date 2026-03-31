@@ -1,0 +1,93 @@
+name: Scout Daily Digest
+
+on:
+  schedule:
+    # Daily scoring run at 7 AM UTC
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Run mode"
+        required: false
+        default: "daily"
+        type: choice
+        options:
+          - "daily"
+          - "weekly"
+          - "daily-dry-run"
+          - "weekly-dry-run"
+
+permissions:
+  contents: write
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore state and knowledge base
+        continue-on-error: true
+        uses: actions/cache@v4
+        with:
+          path: |
+            last_run.json
+            knowledge_base/
+          key: scout-state-${{ github.run_id }}
+          restore-keys: |
+            scout-state-
+
+      - name: Determine run mode
+        id: mode
+        run: |
+          MODE="${{ github.event.inputs.mode || 'daily' }}"
+          DOW=$(date -u +%u)
+          # Auto-weekly on Mondays (day 1) for scheduled runs
+          if [ "$MODE" = "daily" ] && [ "$DOW" = "1" ]; then
+            MODE="weekly"
+          fi
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "Running in mode: $MODE"
+
+      - name: Run Scout
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: |
+          MODE="${{ steps.mode.outputs.mode }}"
+          case "$MODE" in
+            daily)
+              python -m paper_scout -v run
+              ;;
+            weekly)
+              python -m paper_scout -v run --weekly
+              ;;
+            daily-dry-run)
+              python -m paper_scout -v run --dry-run
+              ;;
+            weekly-dry-run)
+              python -m paper_scout -v run --weekly --dry-run
+              ;;
+          esac
+
+      - name: Commit digest and knowledge base files
+        if: "!contains(steps.mode.outputs.mode, 'dry-run')"
+        run: |
+          git config user.name "Scout Bot"
+          git config user.email "scout[bot]@users.noreply.github.com"
+          git add digests/ last_run.json knowledge_base/ || true
+          git diff --cached --quiet || git commit -m "📄 Scout digest $(date -u +%Y-%m-%d)"
+          git push

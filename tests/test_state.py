@@ -1,0 +1,94 @@
+from __future__ import annotations
+
+import json
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+
+from paper_scout.state import StateError, determine_since, load_last_run, save_last_run
+
+
+class TestLoadLastRun:
+    def test_missing_file_returns_none(self, tmp_path: Path) -> None:
+        result = load_last_run(tmp_path / "nonexistent.json")
+        assert result is None
+
+    def test_valid_file(self, tmp_path: Path) -> None:
+        path = tmp_path / "state.json"
+        path.write_text(
+            json.dumps({"last_successful_run": "2026-03-28T07:00:00+00:00"}),
+            encoding="utf-8",
+        )
+        result = load_last_run(path)
+        assert result is not None
+        assert result.year == 2026
+        assert result.month == 3
+        assert result.day == 28
+        assert result.tzinfo is not None
+
+    def test_naive_timestamp_gets_utc(self, tmp_path: Path) -> None:
+        path = tmp_path / "state.json"
+        path.write_text(
+            json.dumps({"last_successful_run": "2026-03-28T07:00:00"}),
+            encoding="utf-8",
+        )
+        result = load_last_run(path)
+        assert result is not None
+        assert result.tzinfo == timezone.utc
+
+    def test_invalid_json_raises(self, tmp_path: Path) -> None:
+        path = tmp_path / "state.json"
+        path.write_text("not json", encoding="utf-8")
+        with pytest.raises(StateError):
+            load_last_run(path)
+
+    def test_missing_timestamp_returns_none(self, tmp_path: Path) -> None:
+        path = tmp_path / "state.json"
+        path.write_text(json.dumps({}), encoding="utf-8")
+        result = load_last_run(path)
+        assert result is None
+
+
+class TestSaveLastRun:
+    def test_creates_file(self, tmp_path: Path) -> None:
+        path = tmp_path / "state.json"
+        now = datetime.now(timezone.utc)
+        save_last_run(path, now)
+        assert path.exists()
+        data = json.loads(path.read_text(encoding="utf-8"))
+        assert "last_successful_run" in data
+
+    def test_creates_parent_directories(self, tmp_path: Path) -> None:
+        path = tmp_path / "sub" / "dir" / "state.json"
+        now = datetime.now(timezone.utc)
+        save_last_run(path, now)
+        assert path.exists()
+
+    def test_roundtrip(self, tmp_path: Path) -> None:
+        path = tmp_path / "state.json"
+        original = datetime(2026, 3, 28, 12, 0, 0, tzinfo=timezone.utc)
+        save_last_run(path, original)
+        loaded = load_last_run(path)
+        assert loaded is not None
+        assert abs((loaded - original).total_seconds()) < 1
+
+
+class TestDetermineSince:
+    def test_uses_last_run_when_available(self) -> None:
+        last = datetime(2026, 3, 27, 12, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 3, 28, 12, 0, 0, tzinfo=timezone.utc)
+        since = determine_since(last, lookback_hours=28, now=now)
+        assert since == last
+
+    def test_falls_back_to_lookback_hours(self) -> None:
+        now = datetime(2026, 3, 28, 12, 0, 0, tzinfo=timezone.utc)
+        since = determine_since(None, lookback_hours=24, now=now)
+        expected = now - timedelta(hours=24)
+        assert abs((since - expected).total_seconds()) < 1
+
+    def test_last_run_clamped_to_now(self) -> None:
+        future = datetime(2099, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 3, 28, 12, 0, 0, tzinfo=timezone.utc)
+        since = determine_since(future, lookback_hours=28, now=now)
+        assert since == now
