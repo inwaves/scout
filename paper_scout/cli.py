@@ -44,6 +44,7 @@ class HotAlert:
     paper: Paper
     scored: ScoredPaper
     reason: str
+    deep_read: DeepReadEntry | None = None
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -260,6 +261,54 @@ def run_pipeline(
         config=config,
         knowledge_base=knowledge_base,
     )
+
+    # Deep-read hot alert papers immediately so the alert email includes the full breakdown
+    if hot_alerts and config.alerts.enabled and config.anthropic_api_key:
+        alert_reader = DeepReadAgent(
+            api_key=config.anthropic_api_key,
+            profile=config.profile,
+            analysis=config.analysis,
+            knowledge_base=knowledge_base,
+            s2_client=s2_client,
+        )
+        kb_dirty_from_alerts = False
+        for alert in hot_alerts:
+            already_read = any(
+                entry.paper.arxiv_id == alert.paper.arxiv_id for entry in deep_entries
+            )
+            if already_read:
+                matching_entry = next(
+                    entry for entry in deep_entries
+                    if entry.paper.arxiv_id == alert.paper.arxiv_id
+                )
+                alert.deep_read = matching_entry
+                continue
+
+            LOGGER.info(
+                "Hot alert deep read: %s (score=%.1f, reason=%s)",
+                alert.paper.title[:80],
+                alert.scored.relevance_score,
+                alert.reason,
+            )
+            try:
+                result = alert_reader.analyze_paper(alert.paper, alert.scored)
+                alert.deep_read = result.entry
+                kb_record = _deep_result_to_kb_record(
+                    result=result,
+                    fallback_entry=result.entry,
+                    timestamp=started_at,
+                )
+                knowledge_base.add_paper(kb_record)
+                kb_dirty_from_alerts = True
+                LOGGER.info("Hot alert deep read complete: %s", alert.paper.arxiv_id)
+            except DeepReadError:
+                LOGGER.exception("Hot alert deep read failed for %s", alert.paper.arxiv_id)
+
+        if kb_dirty_from_alerts:
+            try:
+                knowledge_base.save()
+            except KnowledgeBaseError:
+                LOGGER.exception("Failed to save KB after hot alert deep reads.")
 
     if dry_run:
         print(rendered.markdown)
@@ -690,30 +739,69 @@ def _deliver_hot_alerts(hot_alerts: Sequence[HotAlert], channels: Sequence[objec
 
 
 def _render_alert_markdown(alert: HotAlert) -> str:
-    return (
-        f"🔔 **Scout Alert**\n\n"
-        f"**Reason:** {alert.reason}\n\n"
-        f"**[{alert.paper.title}]({alert.paper.url})**\n\n"
-        f"Score: {alert.scored.relevance_score:.1f}/10 · Novelty: {alert.scored.novelty_signal}\n"
-        f"Authors: {', '.join(alert.paper.authors)}\n"
-        f"PDF: {alert.paper.pdf_url}\n\n"
-        "Full analysis appears in the weekly digest."
-    )
+    lines = [
+        f"🔔 **Scout Alert**\n",
+        f"**Reason:** {alert.reason}\n",
+        f"**[{alert.paper.title}]({alert.paper.url})**\n",
+        f"Score: {alert.scored.relevance_score:.1f}/10 · Novelty: {alert.scored.novelty_signal}",
+        f"Authors: {', '.join(alert.paper.authors)}",
+        f"[📄 PDF]({alert.paper.pdf_url}) · [🔗 Abstract]({alert.paper.url})\n",
+    ]
+
+    if alert.deep_read is not None:
+        bd = alert.deep_read.breakdown
+        lines.append(f"---\n")
+        lines.append(f"**Triage:** {bd.triage}\n")
+        lines.append("**TL;DR**")
+        for bullet in bd.tldr:
+            lines.append(f"- {bullet}")
+        lines.append("")
+        lines.append(f"**Motivation:** {bd.motivation}\n")
+        lines.append(f"**Hypothesis:** {bd.hypothesis}\n")
+        lines.append(f"**Methodology:** {bd.methodology}\n")
+        lines.append(f"**Results:** {bd.results}\n")
+        lines.append(f"**Interpretation:** {bd.interpretation}\n")
+        lines.append(f"**Context:** {bd.context}\n")
+        lines.append(f"**Limitations:** {bd.limitations}\n")
+        lines.append(f"**Why it matters to you:** {bd.relevance}")
+    else:
+        lines.append("Deep read could not be completed for this paper.")
+
+    return "\n".join(lines)
 
 
 def _render_alert_html(alert: HotAlert) -> str:
-    return (
-        "<html><body>"
-        "<p>🔔 <strong>Scout Alert</strong></p>"
-        f"<p><strong>Reason:</strong> {alert.reason}</p>"
-        f"<p><a href=\"{alert.paper.url}\"><strong>{alert.paper.title}</strong></a></p>"
-        f"<p>Score: {alert.scored.relevance_score:.1f}/10 · "
-        f"Novelty: {alert.scored.novelty_signal}</p>"
-        f"<p>Authors: {', '.join(alert.paper.authors)}</p>"
-        f"<p><a href=\"{alert.paper.pdf_url}\">PDF</a></p>"
-        "<p>Full analysis appears in the weekly digest.</p>"
-        "</body></html>"
-    )
+    parts = [
+        "<html><body>",
+        "<p>🔔 <strong>Scout Alert</strong></p>",
+        f"<p><strong>Reason:</strong> {alert.reason}</p>",
+        f'<p><a href="{alert.paper.url}"><strong>{alert.paper.title}</strong></a></p>',
+        f"<p>Score: {alert.scored.relevance_score:.1f}/10 · Novelty: {alert.scored.novelty_signal}</p>",
+        f"<p>Authors: {', '.join(alert.paper.authors)}</p>",
+        f'<p><a href="{alert.paper.pdf_url}">📄 PDF</a> · <a href="{alert.paper.url}">🔗 Abstract</a></p>',
+    ]
+
+    if alert.deep_read is not None:
+        bd = alert.deep_read.breakdown
+        parts.append("<hr>")
+        parts.append(f"<p><strong>Triage:</strong> {bd.triage}</p>")
+        parts.append("<p><strong>TL;DR</strong></p><ul>")
+        for bullet in bd.tldr:
+            parts.append(f"<li>{bullet}</li>")
+        parts.append("</ul>")
+        parts.append(f"<p><strong>Motivation:</strong> {bd.motivation}</p>")
+        parts.append(f"<p><strong>Hypothesis:</strong> {bd.hypothesis}</p>")
+        parts.append(f"<p><strong>Methodology:</strong> {bd.methodology}</p>")
+        parts.append(f"<p><strong>Results:</strong> {bd.results}</p>")
+        parts.append(f"<p><strong>Interpretation:</strong> {bd.interpretation}</p>")
+        parts.append(f"<p><strong>Context:</strong> {bd.context}</p>")
+        parts.append(f"<p><strong>Limitations:</strong> {bd.limitations}</p>")
+        parts.append(f"<p><strong>Why it matters to you:</strong> {bd.relevance}</p>")
+    else:
+        parts.append("<p>Deep read could not be completed for this paper.</p>")
+
+    parts.append("</body></html>")
+    return "\n".join(parts)
 
 
 def _select_subject_template(config: PaperScoutConfig) -> str:
