@@ -43,6 +43,8 @@ class DigestRenderer:
             "entries": noteworthy_entries,
             "deep_reads": deep_reads,
             "noteworthy_entries": noteworthy_entries,
+            "run_cost_usd": context.run_cost_usd,
+            "total_cost_usd": context.total_cost_usd,
         }
 
         try:

@@ -7,6 +7,7 @@ import time
 from typing import Any, Iterator, Sequence, TypeVar, cast
 
 from .config import ProfileConfig, ScoringConfig
+from .costs import CostTracker
 from .models import NoveltySignal, Paper, ScoredPaper, VALID_NOVELTY_SIGNALS
 
 LOGGER = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class AnthropicScorer:
         scoring: ScoringConfig,
         api_key: str,
         logger: logging.Logger | None = None,
+        cost_tracker: CostTracker | None = None,
     ) -> None:
         if not api_key:
             raise ScoringError(
@@ -40,6 +42,7 @@ class AnthropicScorer:
         self._client = _build_anthropic_client(api_key)
         self._system_prompt = self._build_system_prompt()
         self._max_retries = 3
+        self._cost_tracker = cost_tracker
 
     def score_papers(self, papers: Sequence[Paper]) -> list[ScoredPaper]:
         if not papers:
@@ -141,6 +144,7 @@ class AnthropicScorer:
                 continue
 
             message = _obj_get(result_payload, "message")
+            self._record_response_usage(message)
             text = _extract_message_text(message)
             if not text:
                 self._logger.warning("Batch request %s returned empty content.", custom_id)
@@ -204,6 +208,7 @@ class AnthropicScorer:
                     max_tokens=self.scoring.max_output_tokens,
                     messages=[{"role": "user", "content": prompt}],
                 )
+                self._record_response_usage(response)
                 text = _extract_message_text(response)
                 if not text:
                     raise ScoringError("Claude response did not contain any text output.")
@@ -223,6 +228,19 @@ class AnthropicScorer:
                 time.sleep(sleep_seconds)
 
         raise ScoringError(f"Anthropic scoring request failed: {last_error}")
+
+    def _record_response_usage(self, response: Any) -> None:
+        if self._cost_tracker is None:
+            return
+
+        usage = _obj_get(response, "usage")
+        input_tokens = _coerce_int(_obj_get(usage, "input_tokens", 0))
+        output_tokens = _coerce_int(_obj_get(usage, "output_tokens", 0))
+        self._cost_tracker.record(
+            model=self.scoring.model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
 
     def _build_system_prompt(self) -> str:
         return (
@@ -405,3 +423,11 @@ def _extract_json_payload(text: str) -> Any:
             last_error = exc
 
     raise ScoringError(f"Failed to parse JSON response from model: {last_error}")
+
+
+def _coerce_int(value: Any) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, parsed)
