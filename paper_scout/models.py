@@ -119,6 +119,8 @@ class DigestContext:
     generated_at: datetime
     total_reviewed: int
     threshold: float
+    run_cost_usd: float = 0.0
+    total_cost_usd: float = 0.0
     entries: list[DigestEntry] = field(default_factory=list)  # Backward-compatible fallback
     deep_reads: list[DeepReadEntry] = field(default_factory=list)
     noteworthy_entries: list[DigestEntry] = field(default_factory=list)

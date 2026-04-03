@@ -6,6 +6,7 @@ from dataclasses import asdict
 from typing import Any
 
 from .config import AnalysisConfig, ProfileConfig
+from .costs import CostTracker
 from .knowledge_base import KnowledgeBase
 from .models import (
     DeepReadBreakdown,
@@ -33,6 +34,7 @@ class DeepReadAgent:
         knowledge_base: KnowledgeBase,
         s2_client: SemanticScholarClient,
         logger: logging.Logger | None = None,
+        cost_tracker: CostTracker | None = None,
     ) -> None:
         if not api_key:
             raise DeepReadError(
@@ -47,6 +49,7 @@ class DeepReadAgent:
         self._logger = logger or LOGGER
         self._client = _build_anthropic_client(api_key)
         self._tools = _build_tools()
+        self._cost_tracker = cost_tracker
 
     def analyze_paper(self, paper: Paper, scored: ScoredPaper) -> DeepReadResult:
         messages: list[dict[str, Any]] = [self._build_initial_user_message(paper, scored)]
@@ -117,14 +120,33 @@ class DeepReadAgent:
         }
 
         try:
-            return self._client.messages.create(
+            response = self._client.messages.create(
                 **payload,
                 extra_headers={"anthropic-beta": "pdfs-2024-09-25"},
             )
         except TypeError:
-            return self._client.messages.create(**payload)
+            try:
+                response = self._client.messages.create(**payload)
+            except Exception as exc:
+                raise DeepReadError(f"Anthropic deep read request failed: {exc}") from exc
         except Exception as exc:
             raise DeepReadError(f"Anthropic deep read request failed: {exc}") from exc
+
+        self._record_response_usage(response)
+        return response
+
+    def _record_response_usage(self, response: Any) -> None:
+        if self._cost_tracker is None:
+            return
+
+        usage = _obj_get(response, "usage")
+        input_tokens = _coerce_int(_obj_get(usage, "input_tokens", 0))
+        output_tokens = _coerce_int(_obj_get(usage, "output_tokens", 0))
+        self._cost_tracker.record(
+            model=self.analysis.model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
 
     def _build_system_prompt(self) -> str:
         return (
@@ -572,3 +594,11 @@ def _dedupe(values: list[str]) -> list[str]:
         seen.add(value)
         deduped.append(value)
     return deduped
+
+
+def _coerce_int(value: Any) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, parsed)

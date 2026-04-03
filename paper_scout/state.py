@@ -12,13 +12,9 @@ class StateError(RuntimeError):
 
 def load_last_run(state_path: str | Path) -> datetime | None:
     path = Path(state_path).expanduser()
-    if not path.exists():
+    payload = _load_state_payload(path)
+    if payload is None:
         return None
-
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise StateError(f"Failed to read state file {path}: {exc}") from exc
 
     raw = payload.get("last_successful_run")
     if not isinstance(raw, str) or not raw.strip():
@@ -34,12 +30,38 @@ def load_last_run(state_path: str | Path) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
-def save_last_run(state_path: str | Path, timestamp: datetime) -> None:
+def load_cumulative_cost(state_path: str | Path) -> float:
+    path = Path(state_path).expanduser()
+    payload = _load_state_payload(path)
+    if payload is None:
+        return 0.0
+
+    raw = payload.get("cumulative_cost_usd", 0.0)
+    try:
+        parsed = float(raw)
+    except (TypeError, ValueError):
+        return 0.0
+    return max(0.0, parsed)
+
+
+def save_last_run(
+    state_path: str | Path,
+    timestamp: datetime,
+    cumulative_cost_usd: float = 0.0,
+) -> None:
     path = Path(state_path).expanduser()
     timestamp_utc = timestamp.astimezone(timezone.utc) if timestamp.tzinfo else timestamp.replace(
         tzinfo=timezone.utc
     )
-    payload: dict[str, Any] = {"last_successful_run": timestamp_utc.isoformat()}
+    try:
+        cumulative_cost = max(0.0, float(cumulative_cost_usd))
+    except (TypeError, ValueError):
+        cumulative_cost = 0.0
+
+    payload: dict[str, Any] = {
+        "last_successful_run": timestamp_utc.isoformat(),
+        "cumulative_cost_usd": cumulative_cost,
+    }
 
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -66,3 +88,17 @@ def determine_since(
         return min(last_run.astimezone(timezone.utc), now_utc)
 
     return now_utc - timedelta(hours=lookback_hours)
+
+
+def _load_state_payload(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise StateError(f"Failed to read state file {path}: {exc}") from exc
+
+    if not isinstance(payload, dict):
+        raise StateError(f"Invalid state payload in {path}: expected JSON object.")
+    return payload

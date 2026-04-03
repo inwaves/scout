@@ -33,7 +33,14 @@ from .models import (
 )
 from .scorer import AnthropicScorer, ScoringError
 from .semantic_scholar import SemanticScholarClient
-from .state import StateError, determine_since, load_last_run, save_last_run
+from .costs import CostTracker
+from .state import (
+    StateError,
+    determine_since,
+    load_cumulative_cost,
+    load_last_run,
+    save_last_run,
+)
 from .watchlist import WatchlistMatcher
 
 LOGGER = logging.getLogger(__name__)
@@ -70,12 +77,19 @@ def run_pipeline(
     weekly: bool = False,
 ) -> int:
     started_at = datetime.now(timezone.utc)
+    cost_tracker = CostTracker()
+    prior_total_cost_usd = 0.0
 
     try:
         last_run = load_last_run(config.state_file)
+        prior_total_cost_usd = load_cumulative_cost(config.state_file)
     except StateError as exc:
-        LOGGER.warning("Failed to load state file (%s). Falling back to lookback_hours.", exc)
+        LOGGER.warning(
+            "Failed to load state file (%s). Falling back to lookback_hours and zero cumulative cost.",
+            exc,
+        )
         last_run = None
+        prior_total_cost_usd = 0.0
 
     since = determine_since(last_run, config.arxiv.lookback_hours, now=started_at)
     LOGGER.info("Fetching papers since %s", since.isoformat())
@@ -97,7 +111,12 @@ def run_pipeline(
             )
             return 4
 
-        scorer = AnthropicScorer(config.profile, config.scoring, config.anthropic_api_key)
+        scorer = AnthropicScorer(
+            config.profile,
+            config.scoring,
+            config.anthropic_api_key,
+            cost_tracker=cost_tracker,
+        )
         try:
             scored = scorer.score_papers(papers)
         except ScoringError:
@@ -167,6 +186,7 @@ def run_pipeline(
                 analysis=config.analysis,
                 knowledge_base=knowledge_base,
                 s2_client=s2_client,
+                cost_tracker=cost_tracker,
             )
 
             kb_dirty = False
@@ -242,16 +262,14 @@ def run_pipeline(
         generated_at=started_at,
         total_reviewed=len(papers),
         threshold=config.scoring.threshold,
+        run_cost_usd=0.0,
+        total_cost_usd=prior_total_cost_usd,
         entries=noteworthy_entries,
         deep_reads=deep_entries,
         noteworthy_entries=noteworthy_entries,
     )
 
     renderer = DigestRenderer()
-    rendered = renderer.render(
-        digest_context,
-        subject_template=_select_subject_template(config),
-    )
 
     hot_alerts = _collect_hot_alerts(
         papers=papers,
@@ -270,6 +288,7 @@ def run_pipeline(
             analysis=config.analysis,
             knowledge_base=knowledge_base,
             s2_client=s2_client,
+            cost_tracker=cost_tracker,
         )
         kb_dirty_from_alerts = False
         for alert in hot_alerts:
@@ -309,6 +328,23 @@ def run_pipeline(
                 knowledge_base.save()
             except KnowledgeBaseError:
                 LOGGER.exception("Failed to save KB after hot alert deep reads.")
+
+    run_cost_usd = cost_tracker.total_cost_usd
+    total_cost_usd = prior_total_cost_usd + run_cost_usd
+    digest_context.run_cost_usd = run_cost_usd
+    digest_context.total_cost_usd = total_cost_usd
+
+    rendered = renderer.render(
+        digest_context,
+        subject_template=_select_subject_template(config),
+    )
+
+    LOGGER.info(
+        "LLM usage summary: %s | this digest cost: $%.4f | scout total to date: $%.4f",
+        cost_tracker.summary(),
+        run_cost_usd,
+        total_cost_usd,
+    )
 
     if dry_run:
         print(rendered.markdown)
@@ -356,17 +392,23 @@ def run_pipeline(
         return 6
 
     try:
-        save_last_run(config.state_file, started_at)
+        save_last_run(
+            config.state_file,
+            started_at,
+            cumulative_cost_usd=total_cost_usd,
+        )
     except StateError as exc:
         LOGGER.error("Digest delivered but failed to update state file: %s", exc)
         return 7
 
     LOGGER.info(
-        "Run complete: reviewed=%d, selected=%d, deep_reads=%d, delivered=%d channel(s).",
+        "Run complete: reviewed=%d, selected=%d, deep_reads=%d, delivered=%d channel(s), digest_cost=$%.4f, total_cost=$%.4f.",
         len(papers),
         len(deep_entries) + len(noteworthy_entries),
         len(deep_entries),
         successful_deliveries,
+        run_cost_usd,
+        total_cost_usd,
     )
     return 0
 
