@@ -9,10 +9,6 @@ build/
 .pytest_cache/
 .mypy_cache/
 
-# Scout runtime files
-last_run.json
-digests/
-
 # User config (contains API key references and personal research profile)
 scout.yml
 
