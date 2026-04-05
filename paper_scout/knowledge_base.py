@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import json
 import logging
 import re
 import threading
-from dataclasses import asdict
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -21,6 +19,7 @@ _IMAGE_RE = re.compile(r"!\[[^\]]*\]\([^)]+\)")
 _LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 _BULLET_RE = re.compile(r"^\s*[-*+]\s+")
 _NUMBERED_BULLET_RE = re.compile(r"^\s*\d+[.)]\s+")
+_ARXIV_ID_RE = re.compile(r"\d{4}\.\d{4,5}")
 
 
 class KnowledgeBaseError(RuntimeError):
@@ -28,109 +27,70 @@ class KnowledgeBaseError(RuntimeError):
 
 
 class KnowledgeBase:
-    def __init__(self, path: str | Path, max_topic_references: int = 50) -> None:
-        self.path = Path(path).expanduser()
+    def __init__(
+        self,
+        papers_path: str | Path | None = None,
+        max_topic_references: int = 50,
+    ) -> None:
+        self.papers_path = Path(papers_path).expanduser() if papers_path else None
         self.max_topic_references = max(1, int(max_topic_references))
-        self._papers_path = self.path / "papers.json"
-        self._topics_path = self.path / "topics.json"
         self._papers: dict[str, KBPaperRecord] = {}
         self._topics: dict[str, list[str]] = {}
-        self._external_ids: set[str] = set()
         self._lock = threading.RLock()
 
     def load(self) -> None:
-        """Load knowledge base contents from disk."""
+        """Load all *.md files from papers_path and build an in-memory index."""
         with self._lock:
-            self.path.mkdir(parents=True, exist_ok=True)
+            self._papers = {}
+            self._topics = {}
 
-            papers_payload = self._read_json(self._papers_path, default={})
-            topics_payload = self._read_json(self._topics_path, default={})
-
-            self._papers = self._parse_papers_payload(papers_payload)
-            self._external_ids = set()
-            parsed_topics = self._parse_topics_payload(
-                topics_payload,
-                known_ids=set(self._papers),
-            )
-
-            if parsed_topics:
-                self._topics = parsed_topics
-            else:
-                self._topics = {}
-                self._rebuild_topics_index()
-
-    def load_external_kb(self, external_path: str | Path) -> None:
-        """Load paper records from external KB markdown files with YAML frontmatter."""
-        with self._lock:
-            source_dir = Path(external_path).expanduser()
-            if not source_dir.exists():
-                raise KnowledgeBaseError(f"External KB path does not exist: {source_dir}")
-            if not source_dir.is_dir():
-                raise KnowledgeBaseError(f"External KB path is not a directory: {source_dir}")
-
-            self._clear_external_records()
+            if self.papers_path is None:
+                return
+            if not self.papers_path.exists():
+                return
+            if not self.papers_path.is_dir():
+                LOGGER.warning("KB papers path is not a directory: %s", self.papers_path)
+                return
 
             loaded_count = 0
-            used_ids: set[str] = set(self._papers.keys())
-            for note_path in sorted(source_dir.glob("*.md")):
-                record_id = _build_external_record_id(note_path, used_ids)
-                record = _parse_external_note_record(note_path, record_id)
+            used_ids: set[str] = set()
+
+            for note_path in sorted(self.papers_path.glob("*.md")):
+                record_id = _build_record_id(note_path, used_ids)
+                record = _parse_note_record(note_path, record_id)
                 if record is None:
                     continue
 
                 used_ids.add(record.arxiv_id)
                 self._papers[record.arxiv_id] = record
                 self._add_paper_to_topics(record.arxiv_id, record.topics)
-                self._external_ids.add(record.arxiv_id)
                 loaded_count += 1
 
-            LOGGER.info(
-                "Loaded %d external KB paper note(s) from %s.",
-                loaded_count,
-                source_dir,
-            )
-
-    def save(self) -> None:
-        """Persist knowledge base to disk using atomic file replacement."""
-        with self._lock:
-            self.path.mkdir(parents=True, exist_ok=True)
-
-            papers_payload = {
-                arxiv_id: asdict(record)
-                for arxiv_id, record in sorted(self._papers.items())
-                if arxiv_id not in self._external_ids
-            }
-
-            topics_payload: dict[str, list[str]] = {}
-            for topic_key, arxiv_ids in sorted(self._topics.items()):
-                filtered = [
-                    arxiv_id
-                    for arxiv_id in arxiv_ids
-                    if arxiv_id in self._papers and arxiv_id not in self._external_ids
-                ]
-                if filtered:
-                    topics_payload[topic_key] = filtered[-self.max_topic_references :]
-
-            self._atomic_write_json(self._papers_path, papers_payload)
-            self._atomic_write_json(self._topics_path, topics_payload)
+            LOGGER.info("Loaded %d KB paper note(s) from %s.", loaded_count, self.papers_path)
 
     def add_paper(self, record: KBPaperRecord) -> None:
         """Add or update a paper record and refresh topic index entries."""
         with self._lock:
+            arxiv_id = record.arxiv_id.strip()
+            if not arxiv_id:
+                return
+
+            try:
+                score = float(record.score)
+            except (TypeError, ValueError):
+                score = 0.0
+
             sanitized = KBPaperRecord(
-                arxiv_id=record.arxiv_id.strip(),
+                arxiv_id=arxiv_id,
                 title=record.title.strip(),
                 authors=[author.strip() for author in record.authors if author and author.strip()],
                 date_read=record.date_read.strip(),
-                score=float(record.score),
+                score=score,
                 topics=_dedupe_preserve_order(_sanitize_string_list(record.topics)),
                 key_findings=_dedupe_preserve_order(_sanitize_string_list(record.key_findings)),
                 builds_on=_dedupe_preserve_order(_sanitize_string_list(record.builds_on)),
                 tldr=record.tldr.strip(),
             )
-            if not sanitized.arxiv_id:
-                return
-
             self._papers[sanitized.arxiv_id] = sanitized
             self.update_topics(sanitized.arxiv_id, sanitized.topics)
 
@@ -143,6 +103,7 @@ class KnowledgeBase:
 
             ordered_ids: list[str] = []
             seen_ids: set[str] = set()
+
             for topic_key in topic_keys:
                 for arxiv_id in self._topics.get(topic_key, []):
                     if arxiv_id in seen_ids:
@@ -150,21 +111,12 @@ class KnowledgeBase:
                     seen_ids.add(arxiv_id)
                     ordered_ids.append(arxiv_id)
 
-            local_records: list[KBPaperRecord] = []
-            external_records: list[KBPaperRecord] = []
-            for arxiv_id in ordered_ids:
-                record = self._papers.get(arxiv_id)
-                if record is None:
-                    continue
-                if arxiv_id in self._external_ids:
-                    external_records.append(record)
-                else:
-                    local_records.append(record)
-
-            sort_key = lambda record: (_safe_iso_to_datetime(record.date_read), record.score)
-            local_records.sort(key=sort_key, reverse=True)
-            external_records.sort(key=sort_key, reverse=True)
-            return local_records + external_records
+            records = [self._papers[arxiv_id] for arxiv_id in ordered_ids if arxiv_id in self._papers]
+            records.sort(
+                key=lambda record: (_safe_iso_to_datetime(record.date_read), record.score),
+                reverse=True,
+            )
+            return records
 
     def get_paper(self, arxiv_id: str) -> KBPaperRecord | None:
         with self._lock:
@@ -192,69 +144,6 @@ class KnowledgeBase:
             self._remove_paper_from_topics(normalized_id)
             self._add_paper_to_topics(normalized_id, clean_topics)
 
-    def _read_json(self, path: Path, default: Any) -> Any:
-        if not path.exists():
-            return default
-        try:
-            text = path.read_text(encoding="utf-8")
-            payload = json.loads(text)
-        except (OSError, json.JSONDecodeError) as exc:
-            raise KnowledgeBaseError(f"Failed to read knowledge base file {path}: {exc}") from exc
-        return payload
-
-    def _atomic_write_json(self, path: Path, payload: Any) -> None:
-        temporary_path = path.with_name(f"{path.name}.tmp")
-        try:
-            serialized = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
-            temporary_path.write_text(serialized + "\n", encoding="utf-8")
-            temporary_path.replace(path)
-        except OSError as exc:
-            raise KnowledgeBaseError(f"Failed to write knowledge base file {path}: {exc}") from exc
-
-    def _parse_papers_payload(self, payload: Any) -> dict[str, KBPaperRecord]:
-        records: dict[str, KBPaperRecord] = {}
-        if isinstance(payload, dict):
-            iterable = payload.values()
-        elif isinstance(payload, list):
-            iterable = payload
-        else:
-            LOGGER.warning("Ignoring unexpected papers.json shape (%s).", type(payload).__name__)
-            return records
-
-        for raw in iterable:
-            parsed = _parse_paper_record(raw)
-            if parsed is None:
-                continue
-            records[parsed.arxiv_id] = parsed
-        return records
-
-    def _parse_topics_payload(self, payload: Any, known_ids: set[str]) -> dict[str, list[str]]:
-        parsed: dict[str, list[str]] = {}
-        if not isinstance(payload, dict):
-            return parsed
-
-        for raw_topic, raw_ids in payload.items():
-            topic_key = _topic_key(str(raw_topic))
-            if not topic_key:
-                continue
-            if not isinstance(raw_ids, list):
-                continue
-
-            clean_ids: list[str] = []
-            seen_ids: set[str] = set()
-            for raw_id in raw_ids:
-                arxiv_id = str(raw_id).strip()
-                if not arxiv_id or arxiv_id in seen_ids:
-                    continue
-                if known_ids and arxiv_id not in known_ids:
-                    continue
-                seen_ids.add(arxiv_id)
-                clean_ids.append(arxiv_id)
-
-            if clean_ids:
-                parsed[topic_key] = clean_ids[-self.max_topic_references :]
-        return parsed
-
     def _remove_paper_from_topics(self, arxiv_id: str) -> None:
         empty_topics: list[str] = []
         for topic_key, paper_ids in self._topics.items():
@@ -271,10 +160,12 @@ class KnowledgeBase:
             topic_key = _topic_key(topic)
             if not topic_key:
                 continue
+
             bucket = self._topics.setdefault(topic_key, [])
             if arxiv_id in bucket:
                 bucket.remove(arxiv_id)
             bucket.append(arxiv_id)
+
             if len(bucket) > self.max_topic_references:
                 del bucket[: len(bucket) - self.max_topic_references]
 
@@ -282,44 +173,6 @@ class KnowledgeBase:
         self._topics = {}
         for arxiv_id, record in self._papers.items():
             self._add_paper_to_topics(arxiv_id, record.topics)
-
-    def _clear_external_records(self) -> None:
-        if not self._external_ids:
-            return
-
-        for external_id in list(self._external_ids):
-            self._papers.pop(external_id, None)
-            self._remove_paper_from_topics(external_id)
-
-        self._external_ids.clear()
-
-
-def _parse_paper_record(raw: Any) -> KBPaperRecord | None:
-    if not isinstance(raw, dict):
-        return None
-
-    arxiv_id = str(raw.get("arxiv_id", "")).strip()
-    title = str(raw.get("title", "")).strip()
-    date_read = str(raw.get("date_read", "")).strip()
-    if not arxiv_id or not title or not date_read:
-        return None
-
-    try:
-        score = float(raw.get("score", 0.0))
-    except (TypeError, ValueError):
-        score = 0.0
-
-    return KBPaperRecord(
-        arxiv_id=arxiv_id,
-        title=title,
-        authors=_sanitize_string_list(raw.get("authors")),
-        date_read=date_read,
-        score=score,
-        topics=_sanitize_string_list(raw.get("topics")),
-        key_findings=_sanitize_string_list(raw.get("key_findings")),
-        builds_on=_sanitize_string_list(raw.get("builds_on")),
-        tldr=str(raw.get("tldr", "")).strip(),
-    )
 
 
 def _sanitize_string_list(value: Any) -> list[str]:
@@ -368,11 +221,11 @@ def _safe_iso_to_datetime(value: str) -> datetime:
     return parsed
 
 
-def _parse_external_note_record(path: Path, record_id: str) -> KBPaperRecord | None:
+def _parse_note_record(path: Path, record_id: str) -> KBPaperRecord | None:
     try:
         raw_markdown = path.read_text(encoding="utf-8")
     except OSError as exc:
-        LOGGER.warning("Failed to read external KB note %s: %s", path, exc)
+        LOGGER.warning("Failed to read KB note %s: %s", path, exc)
         return None
 
     frontmatter, body = _parse_markdown_frontmatter(raw_markdown, path)
@@ -408,11 +261,16 @@ def _parse_external_note_record(path: Path, record_id: str) -> KBPaperRecord | N
     )
 
 
-def _build_external_record_id(path: Path, used_ids: set[str]) -> str:
-    """Build a record ID for an external KB note, preferring arXiv ID from frontmatter URL."""
+def _build_record_id(path: Path, used_ids: set[str]) -> str:
+    """Build a stable record ID for a KB note, preferring arXiv IDs when available."""
     try:
         raw = path.read_text(encoding="utf-8")
         frontmatter, _ = _parse_markdown_frontmatter(raw, path)
+
+        explicit_id = _extract_arxiv_id_from_text(_coerce_text(frontmatter.get("arxiv_id")))
+        if explicit_id and explicit_id not in used_ids:
+            return explicit_id
+
         url = _coerce_text(frontmatter.get("url"))
         arxiv_id = _extract_arxiv_id_from_url(url)
         if arxiv_id and arxiv_id not in used_ids:
@@ -420,26 +278,50 @@ def _build_external_record_id(path: Path, used_ids: set[str]) -> str:
     except Exception:
         pass
 
+    stem_arxiv = _extract_arxiv_id_from_text(path.stem)
+    if stem_arxiv and stem_arxiv not in used_ids:
+        return stem_arxiv
+
     slug = _slugify(path.stem) or "paper-note"
-    candidate = f"external:{slug}"
+    candidate = f"note:{slug}"
     suffix = 2
     while candidate in used_ids:
-        candidate = f"external:{slug}-{suffix}"
+        candidate = f"note:{slug}-{suffix}"
         suffix += 1
     return candidate
 
 
 def _extract_arxiv_id_from_url(url: str) -> str:
-    """Extract arXiv ID from a URL like https://arxiv.org/abs/2603.26410."""
+    """Extract an arXiv ID from a URL like https://arxiv.org/abs/2603.26410."""
     if not url:
         return ""
+
+    cleaned = url.strip()
+
+    if cleaned.lower().startswith("arxiv:"):
+        return _extract_arxiv_id_from_text(cleaned.split(":", 1)[1])
+
     for marker in ("/abs/", "/pdf/"):
-        if marker in url:
-            candidate = url.split(marker, 1)[1]
-            candidate = candidate.strip().rstrip("/").removesuffix(".pdf")
-            candidate = re.sub(r"v\d+$", "", candidate)
-            return candidate.strip()
-    return ""
+        if marker in cleaned:
+            candidate = cleaned.split(marker, 1)[1]
+            return _extract_arxiv_id_from_text(candidate)
+
+    return _extract_arxiv_id_from_text(cleaned)
+
+
+def _extract_arxiv_id_from_text(text: str) -> str:
+    if not text:
+        return ""
+
+    cleaned = str(text).strip()
+    cleaned = cleaned.split("?", 1)[0].split("#", 1)[0]
+    cleaned = cleaned.rstrip("/").removesuffix(".pdf")
+    cleaned = re.sub(r"v\d+$", "", cleaned)
+
+    match = _ARXIV_ID_RE.search(cleaned)
+    if not match:
+        return ""
+    return match.group(0)
 
 
 def _slugify(text: str) -> str:
@@ -468,11 +350,11 @@ def _parse_markdown_frontmatter(markdown: str, source_path: Path) -> tuple[dict[
     try:
         loaded = yaml.safe_load(frontmatter_text) or {}
     except yaml.YAMLError as exc:
-        LOGGER.warning("YAML parse error in external KB note %s: %s", source_path, exc)
+        LOGGER.warning("YAML parse error in KB note %s: %s", source_path, exc)
         return {}, body
 
     if not isinstance(loaded, dict):
-        LOGGER.warning("Frontmatter in external KB note %s is not a mapping.", source_path)
+        LOGGER.warning("Frontmatter in KB note %s is not a mapping.", source_path)
         return {}, body
 
     return loaded, body
@@ -530,11 +412,13 @@ def _extract_reference_lines(markdown: str) -> list[str]:
         line = raw_line.strip()
         if not line:
             continue
+
         line = _BULLET_RE.sub("", line)
         line = _NUMBERED_BULLET_RE.sub("", line)
         cleaned = _markdown_to_plain_text(line)
         if cleaned:
             refs.append(cleaned)
+
     return _dedupe_preserve_order(refs)
 
 

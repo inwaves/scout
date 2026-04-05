@@ -128,24 +128,15 @@ def run_pipeline(
 
     score_by_id = {item.arxiv_id: item for item in scored if item.arxiv_id in paper_by_id}
 
+    # Load KB from the single papers directory (markdown files only, no JSON).
     knowledge_base = KnowledgeBase(
-        config.knowledge_base.path,
+        config.knowledge_base.papers_path,
         max_topic_references=config.knowledge_base.max_topic_references,
     )
     try:
         knowledge_base.load()
     except KnowledgeBaseError as exc:
         LOGGER.warning("Could not load knowledge base (%s). Proceeding with empty KB.", exc)
-
-    external_kb_path = config.knowledge_base.external_kb_path
-    if external_kb_path:
-        try:
-            knowledge_base.load_external_kb(external_kb_path)
-        except KnowledgeBaseError as exc:
-            LOGGER.warning(
-                "Could not load external KB markdown notes (%s). Proceeding without external KB context.",
-                exc,
-            )
 
     s2_client = SemanticScholarClient(
         request_timeout_seconds=config.arxiv.request_timeout_seconds,
@@ -201,7 +192,6 @@ def run_pipeline(
                 cost_tracker=cost_tracker,
             )
 
-            kb_dirty = False
             for deep_index, scored_item in enumerate(deep_targets, start=1):
                 paper = paper_by_id.get(scored_item.arxiv_id)
                 if paper is None:
@@ -241,19 +231,13 @@ def run_pipeline(
 
                 deep_entries.append(entry)
 
+                # Update in-memory KB so subsequent deep reads can see this paper.
                 kb_record = _deep_result_to_kb_record(
                     result=result,
                     fallback_entry=entry,
                     timestamp=started_at,
                 )
                 knowledge_base.add_paper(kb_record)
-                kb_dirty = True
-
-            if kb_dirty:
-                try:
-                    knowledge_base.save()
-                except KnowledgeBaseError:
-                    LOGGER.exception("Failed to save knowledge base updates.")
 
     noteworthy_entries: list[DigestEntry] = []
     for scored_item in noteworthy_scored:
@@ -294,7 +278,7 @@ def run_pipeline(
         knowledge_base=knowledge_base,
     )
 
-    # Deep-read hot alert papers immediately so the alert email includes the full breakdown
+    # Deep-read hot alert papers immediately so the alert email includes the full breakdown.
     if hot_alerts and config.alerts.enabled and config.anthropic_api_key:
         alert_reader = DeepReadAgent(
             api_key=config.anthropic_api_key,
@@ -304,7 +288,6 @@ def run_pipeline(
             s2_client=s2_client,
             cost_tracker=cost_tracker,
         )
-        kb_dirty_from_alerts = False
         for alert in hot_alerts:
             already_read = any(
                 entry.paper.arxiv_id == alert.paper.arxiv_id for entry in deep_entries
@@ -337,7 +320,6 @@ def run_pipeline(
                     timestamp=started_at,
                 )
                 knowledge_base.add_paper(kb_record)
-                kb_dirty_from_alerts = True
                 LOGGER.info("Hot alert deep read complete: %s", alert.paper.arxiv_id)
             except DeepReadError:
                 LOGGER.exception("Hot alert deep read failed for %s", alert.paper.arxiv_id)
@@ -358,35 +340,8 @@ def run_pipeline(
                     timestamp=started_at,
                 )
                 knowledge_base.add_paper(kb_record)
-                kb_dirty_from_alerts = True
 
-        if kb_dirty_from_alerts:
-            try:
-                knowledge_base.save()
-            except KnowledgeBaseError:
-                LOGGER.exception("Failed to save KB after hot alert deep reads.")
-
-    kb_stub_notes = 0
-    kb_full_notes = 0
-    try:
-        kb_stub_notes, kb_full_notes = _generate_kb_notes(
-            config=config,
-            paper_by_id=paper_by_id,
-            scored=scored,
-            deep_results_by_id=deep_results_by_id,
-            watchlist_matches=watchlist_matches,
-            knowledge_base=knowledge_base,
-        )
-    except Exception:
-        LOGGER.exception("Failed to generate KB-compatible paper notes.")
-    else:
-        LOGGER.info(
-            "Generated %d KB note(s): %d full, %d stub.",
-            kb_stub_notes + kb_full_notes,
-            kb_full_notes,
-            kb_stub_notes,
-        )
-
+    # Compute costs before rendering so the digest footer has accurate numbers.
     run_cost_usd = cost_tracker.total_cost_usd
     total_cost_usd = prior_total_cost_usd + run_cost_usd
     digest_context.run_cost_usd = run_cost_usd
@@ -415,8 +370,45 @@ def run_pipeline(
                     alert.scored.relevance_score,
                     alert.reason,
                 )
-        LOGGER.info("Dry run complete. Delivery and state update skipped.")
+        LOGGER.info("Dry run complete. Delivery, KB note writes, and state update skipped.")
         return 0
+
+    # --- Beyond this point: real run only (not dry-run) ---
+
+    # Write KB paper notes to the papers directory (same dir the KB loaded from).
+    kb_stub_notes = 0
+    kb_full_notes = 0
+    kb_note_writer: KBNoteWriter | None = None
+    if config.knowledge_base.papers_path:
+        try:
+            kb_note_writer = KBNoteWriter(config.knowledge_base.papers_path)
+        except OSError as exc:
+            LOGGER.warning(
+                "Could not initialize KB note writer at %s (%s). Proceeding without KB note writes.",
+                config.knowledge_base.papers_path,
+                exc,
+            )
+
+    if kb_note_writer is not None:
+        try:
+            kb_stub_notes, kb_full_notes = _generate_kb_notes(
+                kb_note_writer=kb_note_writer,
+                generated_at=started_at,
+                paper_by_id=paper_by_id,
+                scored=scored,
+                deep_results_by_id=deep_results_by_id,
+                watchlist_matches=watchlist_matches,
+                knowledge_base=knowledge_base,
+            )
+        except Exception:
+            LOGGER.exception("Failed to generate KB paper notes.")
+        else:
+            LOGGER.info(
+                "Generated %d KB note(s): %d full, %d stub.",
+                kb_stub_notes + kb_full_notes,
+                kb_full_notes,
+                kb_stub_notes,
+            )
 
     try:
         channels = build_delivery_channels(config.delivery_channels)
@@ -740,6 +732,29 @@ def _deep_result_to_kb_record(
     )
 
 
+def _scored_to_kb_record(
+    *,
+    paper: Paper,
+    scored: ScoredPaper,
+    timestamp: datetime,
+) -> KBPaperRecord:
+    summary = _compact_text(scored.rationale, max_chars=240) or paper.title
+    finding = _compact_text(scored.rationale, max_chars=180)
+    key_findings = [finding] if finding else []
+
+    return KBPaperRecord(
+        arxiv_id=paper.arxiv_id,
+        title=paper.title,
+        authors=list(paper.authors),
+        date_read=timestamp.date().isoformat(),
+        score=scored.relevance_score,
+        topics=_stub_note_tags(paper, scored) or _fallback_topics(paper),
+        key_findings=key_findings,
+        builds_on=[],
+        tldr=summary,
+    )
+
+
 def _fallback_topics(paper: Paper) -> list[str]:
     topics = [topic for topic in paper.categories if topic.strip()]
     if topics:
@@ -907,6 +922,73 @@ def _render_alert_html(alert: HotAlert) -> str:
     return "\n".join(parts)
 
 
+def _generate_kb_notes(
+    *,
+    kb_note_writer: KBNoteWriter,
+    generated_at: datetime,
+    paper_by_id: dict[str, Paper],
+    scored: Sequence[ScoredPaper],
+    deep_results_by_id: dict[str, DeepReadResult],
+    watchlist_matches: dict[str, WatchlistMatch],
+    knowledge_base: KnowledgeBase,
+) -> tuple[int, int]:
+    full_count = 0
+    for arxiv_id in sorted(deep_results_by_id):
+        result = deep_results_by_id[arxiv_id]
+        paper = paper_by_id.get(arxiv_id) or result.entry.paper
+        watch_match = watchlist_matches.get(arxiv_id)
+        watchlist_label = (
+            result.entry.watchlist_match
+            or (watch_match.matched_name if watch_match else None)
+        )
+        kb_note_writer.write_deep_read_note(
+            paper=paper,
+            result=result,
+            watchlist_match=watchlist_label,
+        )
+        knowledge_base.add_paper(
+            _deep_result_to_kb_record(
+                result=result,
+                fallback_entry=result.entry,
+                timestamp=generated_at,
+            )
+        )
+        full_count += 1
+
+    deep_read_ids = set(deep_results_by_id)
+    seen_stub_ids: set[str] = set()
+    stub_count = 0
+
+    for scored_item in sorted(scored, key=lambda item: item.relevance_score, reverse=True):
+        if scored_item.relevance_score < 7.0:
+            continue
+        if scored_item.arxiv_id in deep_read_ids or scored_item.arxiv_id in seen_stub_ids:
+            continue
+        if knowledge_base.has_paper(scored_item.arxiv_id):
+            continue
+
+        paper = paper_by_id.get(scored_item.arxiv_id)
+        if paper is None:
+            continue
+
+        kb_note_writer.write_stub_note(
+            paper=paper,
+            scored=scored_item,
+            tags=_stub_note_tags(paper, scored_item),
+        )
+        knowledge_base.add_paper(
+            _scored_to_kb_record(
+                paper=paper,
+                scored=scored_item,
+                timestamp=generated_at,
+            )
+        )
+        seen_stub_ids.add(scored_item.arxiv_id)
+        stub_count += 1
+
+    return stub_count, full_count
+
+
 def _select_subject_template(config: PaperScoutConfig) -> str:
     for channel in config.delivery_channels:
         if channel.type.lower() == "email" and channel.subject_template:
@@ -944,7 +1026,7 @@ def _build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Run pipeline but skip delivery and state updates; print markdown digest to stdout.",
+        help="Run pipeline but skip delivery, KB note writes, and state updates; print markdown digest to stdout.",
     )
     run_parser.add_argument(
         "--weekly",
@@ -992,60 +1074,6 @@ def _deep_entry_to_result(entry: DeepReadEntry) -> DeepReadResult:
         key_findings=list(entry.breakdown.tldr[:3]),
         builds_on=[],
     )
-
-
-def _generate_kb_notes(
-    *,
-    config: PaperScoutConfig,
-    paper_by_id: dict[str, Paper],
-    scored: Sequence[ScoredPaper],
-    deep_results_by_id: dict[str, DeepReadResult],
-    watchlist_matches: dict[str, WatchlistMatch],
-    knowledge_base: KnowledgeBase,
-) -> tuple[int, int]:
-    writer = KBNoteWriter(config.knowledge_base.kb_output_path)
-
-    full_count = 0
-    for arxiv_id in sorted(deep_results_by_id):
-        result = deep_results_by_id[arxiv_id]
-        paper = paper_by_id.get(arxiv_id) or result.entry.paper
-        watch_match = watchlist_matches.get(arxiv_id)
-        watchlist_label = (
-            result.entry.watchlist_match
-            or (watch_match.matched_name if watch_match else None)
-        )
-        writer.write_deep_read_note(
-            paper=paper,
-            result=result,
-            watchlist_match=watchlist_label,
-        )
-        full_count += 1
-
-    deep_read_ids = set(deep_results_by_id)
-    seen_stub_ids: set[str] = set()
-    stub_count = 0
-
-    for scored_item in sorted(scored, key=lambda item: item.relevance_score, reverse=True):
-        if scored_item.relevance_score < 7.0:
-            continue
-        if scored_item.arxiv_id in deep_read_ids or scored_item.arxiv_id in seen_stub_ids:
-            continue
-        if knowledge_base.has_paper(scored_item.arxiv_id):
-            continue
-
-        paper = paper_by_id.get(scored_item.arxiv_id)
-        if paper is None:
-            continue
-
-        writer.write_stub_note(
-            paper=paper,
-            scored=scored_item,
-            tags=_stub_note_tags(paper, scored_item),
-        )
-        seen_stub_ids.add(scored_item.arxiv_id)
-        stub_count += 1
-
-    return stub_count, full_count
 
 
 def _stub_note_tags(paper: Paper, scored: ScoredPaper) -> list[str]:
