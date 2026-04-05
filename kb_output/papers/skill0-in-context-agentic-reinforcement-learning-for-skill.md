@@ -1,71 +1,72 @@
-# 📄 Scout Digest — April 05, 2026
-
-**2 papers surfaced out of 29 reviewed**  
-**Threshold:** ≥7
-
-## 🔍 Deep Reads
-
 ---
-### 1. [Novel Memory Forgetting Techniques for Autonomous AI Agents: Balancing Relevance and Efficiency](https://arxiv.org/abs/2604.02280)
-
-**Score: 7/10** · Novelty: notable · Watchlist: Not recommended for watchlist. The paper has serious methodological integrity issues (no experiments, fabricated comparison rows, impossible publication date). Monitor the actual cited works instead: EvolveMem (Shah et al.), Memory OS (Kang et al.), and HiAgent (Hu et al.) represent genuine advances in agent memory architecture relevant to the profile.  
-*Authors: Payal Fofadiya, Sunil Tiwari*  
-*Categories: cs.AI, cs.CV*
-
-**Triage:** 4
-
-**TL;DR**
-- Proposes an 'adaptive budgeted forgetting framework' for long-horizon conversational agents that combines recency, frequency, and semantic scoring to prune memory under a fixed budget constraint.
-- Critically, the paper contains NO original experiments — all reported numbers are lifted directly from prior work (LOCOMO, LOCCO, MultiWOZ baselines from refs [17], [18], [23]). The 'Ours' row in Table III states only inequalities ('>93.3%', '>0.643 F1') with zero empirical backing.
-- The framework is purely theoretical/conceptual: equations and an algorithm are presented but never implemented, trained, or evaluated on any actual system.
-
-**Motivation**  
-Long-horizon conversational agents suffer from two opposing failure modes: (1) unbounded memory accumulation causes retrieval noise, computational overhead, and false memory propagation (outdated facts contaminating future reasoning); (2) aggressive deletion destroys contextual fidelity needed for multi-hop reasoning. Benchmarks like LOCOMO (600+ turn dialogues) and LOCCO (3,080 dialogues across 100 users) document severe performance degradation as dialogue length grows. The paper frames this as a constrained optimization problem: how to selectively forget while preserving task performance under a fixed memory budget B.
-
-**Hypothesis**  
-A principled, budget-constrained forgetting mechanism that scores memory units by a weighted combination of recency (exponential decay), usage frequency, and semantic alignment with the current query can maintain or improve long-horizon reasoning performance while reducing false memory rates — outperforming both naive accumulation and heuristic deletion baselines.
-
-**Methodology**  
-The framework is defined mathematically across five equations: (1) naive memory accumulation baseline; (2) a composite importance score I(m_i, t) = α·R(m_i,t) + β·F(m_i) + γ·S(m_i, q_t) combining recency, frequency, and semantic similarity; (3) a constrained maximization that selects the top-B memory units by cumulative importance; (4) exponential decay R(m_i,t) = exp(−λ(t−t_i)); and (5) a joint loss L_total = L_task + η·|M_t|/B penalizing memory overuse. Algorithm 1 formalizes the incremental update loop. A 'theoretical stability analysis' argues ∆_t → 0 under repeated application of the budget constraint. Evaluation is claimed across LOCOMO, LOCCO, and MultiWOZ 2.4. HOWEVER: no actual implementation is described (no model, no embedding method for semantic similarity, no hyperparameter search, no training setup). All numbers in the results section are directly copied from prior papers.
-
-**Results**  
-The paper reports no original experimental results. Table II reproduces prior benchmark numbers verbatim (LOCOMO F1: 51.6 for GPT-4-turbo; LOCCO M1: 0.455→0.05; MultiWOZ accuracy: 78.2%, FMR: 6.8%). Table III's 'Ours' row claims '>93.3% accuracy, >91.2% precision, stable recall under deletion, >0.643 F1, reduced FMR, lower context usage' — all stated as lower bounds with no data. Figure 3 shows a bar chart comparing 'Best Prior Work' vs 'Proposed Method' with the proposed method bars uniformly higher, but no source data is provided for the proposed method bars. The 'ablation study' (Section V.C) re-discusses Shah et al. [22]'s ablation results, not the authors' own.
-
-**Interpretation**  
-This paper should be read as a conceptual proposal or extended position paper, not an empirical contribution. The core idea — scoring memory units by recency + frequency + semantic relevance and pruning to a fixed budget — is sound and practically motivated. The mathematical formulation is clean and the problem framing is well-articulated. However, the paper makes a fundamental misrepresentation: it presents a results section with comparison tables and figures that imply empirical validation, when in fact no experiments were conducted. The 'Ours' row in Table III is fabricated in the sense that it states performance bounds with no experimental basis. This is a significant integrity concern. The literature review is the paper's genuine contribution, providing a structured comparison of 15 memory management approaches. For an AI safety researcher interested in agent memory architectures, the survey content has modest value, but the paper's empirical claims should be entirely disregarded.
-
-**Context**  
-Memory management for long-horizon agents is a genuinely important and active research area. Legitimate recent work includes: Maharana et al. (LOCOMO benchmark, ACL 2024), Jia et al. (LOCCO benchmark, ACL 2025), Shah et al. (EvolveMem hierarchical memory, workshop 2025), Kang et al. (Memory OS of AI Agent, EMNLP 2025), and Hu et al. (HiAgent hierarchical working memory, ACL 2025). These papers represent the actual state of the art. The present paper's framework sits conceptually between KV-cache eviction methods (Shen et al. [14]) and session-level memory architectures (Shah et al. [22]), but unlike those works, it provides no implementation or evaluation. The problem of false memory propagation — where outdated or contradictory facts corrupt future reasoning — is a real and underexplored failure mode with direct relevance to AI safety in deployed agents.
-
-**Limitations**  
-1. **No experiments**: The most critical limitation — the framework is never implemented or evaluated. All claimed results are either borrowed from prior work or stated as unsubstantiated inequalities. 2. **No implementation details**: The semantic similarity function S(m_i, q_t) is never specified (what embedding model? cosine similarity? threshold?). The budget B is never defined operationally. Hyperparameters α, β, γ, λ, η are never tuned or ablated. 3. **Metadata fraud signal**: Claiming Dec 2024 publication while citing 2025 conference proceedings is factually impossible and raises questions about the paper's provenance. 4. **Trivial stability analysis**: The 'convergence' claim is definitional, not a theorem. 5. **No comparison to actual baselines**: The paper never runs its method against EvolveMem, HiAgent, or Memory OS — the most relevant contemporaneous systems. 6. **Knapsack complexity ignored**: The constrained maximization in Eq. 3 is NP-hard in general; no approximation strategy is discussed. 7. **Authors from unknown startup 'Fulloop'** with no prior publication record in this area.
-
-**Why it matters to you**  
-Moderate-low for an AI safety/agents researcher. The problem domain (agent memory, false memory propagation, long-horizon consistency) is directly relevant to agent architecture concerns. However, the paper makes no genuine empirical or theoretical contribution beyond a literature survey and a conceptual framework sketch. The false memory problem has real safety implications — agents that propagate stale or contradictory beliefs can behave unreliably — but this paper does not advance the science of addressing it. Researchers should instead look at the cited works: Shah et al. [22] (EvolveMem), Kang et al. [21] (Memory OS), Hu et al. [20] (HiAgent), and Maharana et al. [18] (LOCOMO benchmark) for substantive contributions.
-
-[📄 PDF](https://arxiv.org/pdf/2604.02280v1) · [🔗 Abstract](https://arxiv.org/abs/2604.02280)
-
+title: "SKILL0: In-Context Agentic Reinforcement Learning for Skill Internalization"
+authors:
+  - Zhengxi Lu
+  - Zhiyuan Yao
+  - Jinyang Wu
+  - Chengcheng Han
+  - Qi Gu
+  - Xunliang Cai
+  - Weiming Lu
+  - Jun Xiao
+  - Yueting Zhuang
+  - Yongliang Shen
+tags:
+  - agentic reinforcement learning
+  - skill internalization
+  - curriculum learning
+  - LLM agent training
+  - in-context learning
+  - tool use
+  - multi-turn agents
+  - visual context compression
+  - ALFWorld
+  - search-augmented QA
+  - zero-shot generalization
+  - GRPO
+  - agent memory
+url: https://arxiv.org/abs/2604.02268
+created: 2026-04-05
+engaged: true
+insightful: true
 ---
-### 2. [SKILL0: In-Context Agentic Reinforcement Learning for Skill Internalization](https://arxiv.org/abs/2604.02268)
+# SKILL0: In-Context Agentic Reinforcement Learning for Skill Internalization
 
-**Score: 7/10** · Novelty: notable · Watchlist: HIGH INTEREST match: Agent architectures (planning, reasoning, tool use) — directly advances agent training methodology. MODERATE match: Foundation model post-training — novel RL curriculum for skill internalization. The safety angle (internalized vs. inspectable skills) is an implicit concern worth flagging for safety researchers.  
-*Authors: Zhengxi Lu, Zhiyuan Yao, Jinyang Wu, Chengcheng Han, Qi Gu, Xunliang Cai, Weiming Lu, Jun Xiao, Yueting Zhuang, Yongliang Shen*  
-*Categories: cs.LG*
-
-**Triage:** 7 — Solid contribution to agentic RL and agent training methodology. The core idea of using skills as transient training scaffolding that gets progressively withdrawn is novel and practically motivated. Not from a top safety lab, and the safety implications are indirect, but the work directly advances autonomous agent capabilities and addresses a real failure mode (inference-time context dependence). Worth reading for anyone working on agent training, tool use, or reducing inference-time overhead.
-
-**TL;DR**
+## Summary
 - SKILL0 trains LLM agents to internalize procedural skills into model weights via a progressive curriculum that starts with full skill context and systematically withdraws it, achieving zero-shot inference with no runtime skill retrieval.
 - The key mechanism is In-Context Reinforcement Learning (ICRL): skills are provided as visual context during training rollouts but removed entirely at inference, with a Dynamic Curriculum that evaluates each skill file's on-policy helpfulness and drops skills only when the policy no longer benefits from them.
 - Results on ALFWorld (+9.7% over AgentOCR) and Search-QA (+6.6%) show SKILL0 matches or beats skill-augmented methods (SkillRL) while using 5× fewer tokens per step (<0.5k vs. 2.21k), demonstrating that internalization can be more efficient than retrieval-augmented inference.
 
-**Motivation**  
+## Questions
+
+## Refs
+- Shao et al. 2024 — DeepSeekMath / GRPO: Group Relative Policy Optimization, the base RL algorithm (arXiv:2402.03300)
+- Xia et al. 2026 — SkillRL: Recursive skill-augmented RL, closest prior work and source of SkillBank initialization (arXiv:2602.08234)
+- Feng et al. 2026 — AgentOCR: Visual context compression via optical self-compression, source of the rendering approach and composite reward design (arXiv:2601.04786)
+- Shridhar et al. 2020 — ALFWorld: Primary evaluation benchmark for embodied text-based agents (arXiv:2010.03768)
+- Jin et al. 2025 — Search-R1: Training LLMs to reason and leverage search engines with RL, source of Search-QA setup (arXiv:2503.09516)
+- Yao et al. 2022 — ReAct: Synergizing reasoning and acting in language models, foundational agent baseline
+- Shinn et al. 2024 — Reflexion: Language agents with verbal reinforcement learning (arXiv:2303.11366)
+- Zhao et al. 2024 — ExpeL: LLM agents as experiential learners, foundational memory-based agent work
+- Guo et al. 2025 — DeepSeek-R1: Incentivizing reasoning capability in LLMs via RL (arXiv:2501.12948)
+- Yuan et al. 2025 — From f(x) and g(x) to f(g(x)): LLMs learn new skills in RL by composing old ones (arXiv:2509.25123)
+- Anderson 1982 — Acquisition of cognitive skill: Psychological theory motivating the explicit/internalized skill progression
+- Feng et al. 2025 — GiGPO: Group-in-group policy optimization for LLM agent training (arXiv:2505.10978)
+- Wang et al. 2023 — Voyager: Open-ended embodied agent with LLMs, early skill-based agent work (arXiv:2305.16291)
+
+## Notes
+- Watchlist match: HIGH INTEREST match: Agent architectures (planning, reasoning, tool use) — directly advances agent training methodology. MODERATE match: Foundation model post-training — novel RL curriculum for skill internalization. The safety angle (internalized vs. inspectable skills) is an implicit concern worth flagging for safety researchers.
+
+### Triage
+7 — Solid contribution to agentic RL and agent training methodology. The core idea of using skills as transient training scaffolding that gets progressively withdrawn is novel and practically motivated. Not from a top safety lab, and the safety implications are indirect, but the work directly advances autonomous agent capabilities and addresses a real failure mode (inference-time context dependence). Worth reading for anyone working on agent training, tool use, or reducing inference-time overhead.
+
+### Motivation
 The prevailing paradigm for extending LLM agent capabilities is inference-time skill augmentation: retrieve relevant skills from a bank and inject them into the context at each step. This has three fundamental problems: (1) retrieval noise introduces irrelevant or misleading guidance; (2) injected skill content imposes compounding token overhead across multi-turn interactions; (3) most critically, the model never actually *learns* the skills — competence resides in the context, not the model. The authors draw an analogy to human cognitive skill acquisition (Anderson, 1982): humans move from explicit instruction to autonomous internalized execution. Inference-time augmentation permanently anchors agents in the first stage. The paper asks whether RL can drive the transition to the second stage.
 
-**Hypothesis**  
+### Hypothesis
 Skills can be internalized into model parameters via a training-time curriculum that provides structured skill guidance during RL rollouts but progressively withdraws it, ultimately enabling zero-shot autonomous behavior without any runtime skill retrieval. The hypothesis is that RL optimization, when given the right scaffolding (skills) and the right pressure (progressive removal), will consolidate effective strategies as intrinsic policy rather than context-dependent behavior.
 
-**Methodology**  
+### Methodology
 **Architecture:** Built on Qwen2.5-VL (3B and 7B), a vision-language model. Interaction history and skill files are rendered as compact RGB images (visual context), encoded by the vision encoder, dramatically reducing token overhead. The agent also self-generates a compression ratio at each step alongside its action.
 
 **Skill Organization:** A hierarchical SkillBank with general skills (cross-task) and task-specific skills, organized as Markdown files by category (e.g., `skills/ALFWorld/clean.md`). Skills are initialized from SkillRL's bank.
@@ -76,7 +77,7 @@ Skills can be internalized into model parameters via a training-time curriculum 
 
 **Evaluation:** ALFWorld (3,827 household task instances, 6 categories) and Search-based QA (7 datasets: NQ, TriviaQA, PopQA, HotpotQA, 2Wiki, MuSiQue, Bamboogle). Training: 180 steps on 4 H800 GPUs.
 
-**Results**  
+### Results
 **ALFWorld (3B):** SKILL0 achieves 87.9% average success rate vs. AgentOCR 78.2% (+9.7%), GRPO 79.9%, SkillRL† 82.4% (skill-augmented at inference). Token cost: 0.38k/step vs. SkillRL's 2.21k (5.8× reduction).
 
 **ALFWorld (7B):** SKILL0 achieves 89.8% vs. AgentOCR 81.2% (+8.6%), GRPO 81.8%, SkillRL† 89.9% (essentially tied, but SKILL0 uses no inference-time skills). Beats GPT-4o (48.0%) and Gemini-2.5-Pro (60.3%) by large margins.
@@ -87,7 +88,7 @@ Skills can be internalized into model parameters via a training-time curriculum 
 
 **Training dynamics:** Helpfulness shows a characteristic rise-then-fall pattern across all sub-tasks, empirically validating the internalization mechanism. SKILL0 continues improving throughout training while GRPO and SkillRL plateau early.
 
-**Interpretation**  
+### Interpretation
 The paper makes a genuinely interesting conceptual contribution: reframing skill augmentation not as an inference-time mechanism but as a training-time scaffold. The analogy to human cognitive skill acquisition (Anderson's ACT* theory) is apt and well-motivated. The Dynamic Curriculum is the key technical innovation — the helpfulness-driven adaptive withdrawal is more principled than fixed annealing schedules and avoids the failure mode of premature skill removal.
 
 **What's surprising:** The finding that SKILL0 performs *better* without skills at inference than with them (+1.6%) is striking. This suggests the curriculum not only internalizes skills but also eliminates a form of context-dependence that would otherwise hurt performance. This is reminiscent of the training-inference distribution gap problem in RAG systems.
@@ -96,17 +97,11 @@ The paper makes a genuinely interesting conceptual contribution: reframing skill
 
 **Relation to D2Skill (KB):** There's a notable parallel with D2Skill (arXiv:2603.28716) in the KB, which also observed that skills partially internalize into policy weights during training. SKILL0 makes this the *explicit* training objective rather than a side effect, which is the key distinction. D2Skill uses paired rollouts for utility estimation; SKILL0 uses separate validation sub-tasks — both are principled approaches to the same problem.
 
-**Context**  
+### Context
 This paper sits at the intersection of several active research threads: (1) agentic RL post-training (GRPO, Search-R1, AgentOCR), (2) skill-augmented agents (SkillRL, D2Skill, EvolveR), and (3) curriculum learning for RL. The closest prior work is SkillRL (Xia et al. 2026), which SKILL0 directly competes with and matches despite using no inference-time skills. The visual context compression approach builds on AgentOCR (Feng et al. 2026). The broader context is the emerging ecosystem of "agent skills" (Xu & Yan 2026) as a standard mechanism for extending LLM agent capabilities — SKILL0 challenges this paradigm by arguing for internalization over augmentation. The paper is from Zhejiang University and Meituan (a Chinese tech company), with the first author interning at Meituan. Not from a top safety lab, but the technical quality is solid.
 
-**Limitations**  
+### Limitations
 1. **SkillBank dependency:** SKILL0 relies on the quality of the initial SkillBank (initialized from SkillRL), which itself requires privileged validation trajectories and an external LLM for skill generation. The paper doesn't address how to build the SkillBank from scratch. 2. **Domain re-partitioning:** The offline relevance-driven skill grouping requires re-partitioning when applied to new task domains, limiting plug-and-play applicability. 3. **Limited benchmark diversity:** Only two benchmark types (embodied household tasks and search-based QA). No evaluation on code generation, GUI automation, or other agent domains where skills are increasingly used. 4. **Additive utility assumption:** The theoretical justification assumes skill utilities are independent and additive, which may not hold in practice. 5. **Visual rendering dependency:** The token efficiency gains are partly attributable to the OCR-style visual rendering (borrowed from AgentOCR), not purely to skill internalization. These contributions are somewhat entangled. 6. **Short training:** Only 180 steps — unclear if the curriculum would remain stable with longer training or larger skill banks. 7. **No safety analysis:** The paper doesn't consider whether internalized skills could encode unsafe behaviors that are harder to inspect or remove than context-injected skills.
 
-**Why it matters to you**  
+### Why it matters
 **Relevance to AI Safety & Agents Research (Score: 7/10):** Directly relevant to agent architecture and training methodology. The skill internalization paradigm has implications for agent controllability: if skills are baked into weights rather than retrieved from an inspectable context, it becomes harder to audit or modify agent behavior at inference time — a potential safety concern not discussed by the authors. The curriculum learning approach is a clean example of training-time scaffolding that could generalize to other forms of knowledge transfer. The token efficiency gains are practically important for deployed agent systems. The paper is not from a priority organization (Anthropic, OpenAI, DeepMind) and doesn't directly address safety alignment, but the agent training methodology is directly in the high-interest zone.
-
-[📄 PDF](https://arxiv.org/pdf/2604.02268v1) · [🔗 Abstract](https://arxiv.org/abs/2604.02268)
-
-
-
-*Generated by Scout · This digest cost $1.84 · Scout total to date: $3.13*

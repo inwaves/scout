@@ -245,5 +245,100 @@
     "topics": [
       "cs.AI"
     ]
+  },
+  "2604.02268": {
+    "arxiv_id": "2604.02268",
+    "authors": [
+      "Zhengxi Lu",
+      "Zhiyuan Yao",
+      "Jinyang Wu",
+      "Chengcheng Han",
+      "Qi Gu",
+      "Xunliang Cai",
+      "Weiming Lu",
+      "Jun Xiao",
+      "Yueting Zhuang",
+      "Yongliang Shen"
+    ],
+    "builds_on": [
+      "Shao et al. 2024 — DeepSeekMath / GRPO: Group Relative Policy Optimization, the base RL algorithm (arXiv:2402.03300)",
+      "Xia et al. 2026 — SkillRL: Recursive skill-augmented RL, closest prior work and source of SkillBank initialization (arXiv:2602.08234)",
+      "Feng et al. 2026 — AgentOCR: Visual context compression via optical self-compression, source of the rendering approach and composite reward design (arXiv:2601.04786)",
+      "Shridhar et al. 2020 — ALFWorld: Primary evaluation benchmark for embodied text-based agents (arXiv:2010.03768)",
+      "Jin et al. 2025 — Search-R1: Training LLMs to reason and leverage search engines with RL, source of Search-QA setup (arXiv:2503.09516)",
+      "Yao et al. 2022 — ReAct: Synergizing reasoning and acting in language models, foundational agent baseline",
+      "Shinn et al. 2024 — Reflexion: Language agents with verbal reinforcement learning (arXiv:2303.11366)",
+      "Zhao et al. 2024 — ExpeL: LLM agents as experiential learners, foundational memory-based agent work",
+      "Guo et al. 2025 — DeepSeek-R1: Incentivizing reasoning capability in LLMs via RL (arXiv:2501.12948)",
+      "Yuan et al. 2025 — From f(x) and g(x) to f(g(x)): LLMs learn new skills in RL by composing old ones (arXiv:2509.25123)",
+      "Anderson 1982 — Acquisition of cognitive skill: Psychological theory motivating the explicit/internalized skill progression",
+      "Feng et al. 2025 — GiGPO: Group-in-group policy optimization for LLM agent training (arXiv:2505.10978)",
+      "Wang et al. 2023 — Voyager: Open-ended embodied agent with LLMs, early skill-based agent work (arXiv:2305.16291)"
+    ],
+    "date_read": "2026-04-05",
+    "key_findings": [
+      "Skills serve as effective but transient scaffolding: the rise-then-fall helpfulness pattern shows skills are most useful mid-training when the policy is learning to leverage them, then become redundant as knowledge is internalized into weights.",
+      "Adaptive helpfulness-driven curriculum is critical: random skill selection (w/o Rank) causes a catastrophic -13.7% collapse, proving that retaining only genuinely helpful skills is essential for stable policy learning.",
+      "SKILL0 achieves a positive training-inference transfer: the model actually performs slightly better without skill prompts at inference (+1.6%) than with them, suggesting the curriculum successfully eliminates prompt dependency.",
+      "Visual context rendering (OCR-style) enables dramatic token reduction (>5×) while preserving structural information, and the self-generated compression ratio allows the agent to adaptively balance quality vs. efficiency.",
+      "The method generalizes well out-of-domain: strong Bamboogle performance (63.7%/66.9%) despite training only on NQ and HotpotQA suggests internalized skills transfer to unseen reasoning patterns.",
+      "SKILL0 outperforms closed-source models (GPT-4o: 48.0%, Gemini-2.5-Pro: 60.3%) on ALFWorld with a 3B model, suggesting that RL-based skill internalization is highly data-efficient."
+    ],
+    "score": 7.0,
+    "title": "SKILL0: In-Context Agentic Reinforcement Learning for Skill Internalization",
+    "tldr": "SKILL0 trains LLM agents to internalize procedural skills into model weights via a progressive curriculum that starts with full skill context and systematically withdraws it, achieving zero-shot inference with no runtime skill retrieval. The key mechanism is In-Context Reinforcement Learning (ICRL): skills are provided as visual context during training rollouts but removed entirely at inference, with a Dynamic Curriculum that evaluates each skill file's on-policy helpfulness and drops skills only when the policy no longer benefits from them. Results on ALFWorld (+9.7% over AgentOCR) and Search-QA (+6.6%) show SKILL0 matches or beats skill-augmented methods (SkillRL) while using 5× fewer tokens per step (<0.5k vs. 2.21k), demonstrating that internalization can be more efficient than retrieval-augmented inference.",
+    "topics": [
+      "agentic reinforcement learning",
+      "skill internalization",
+      "curriculum learning",
+      "LLM agent training",
+      "in-context learning",
+      "tool use",
+      "multi-turn agents",
+      "visual context compression",
+      "ALFWorld",
+      "search-augmented QA",
+      "zero-shot generalization",
+      "GRPO",
+      "agent memory"
+    ]
+  },
+  "2604.02280": {
+    "arxiv_id": "2604.02280",
+    "authors": [
+      "Payal Fofadiya",
+      "Sunil Tiwari"
+    ],
+    "builds_on": [
+      "Maharana et al. 2024 — LOCOMO benchmark for very long-term conversational memory evaluation (ACL 2024)",
+      "Jia et al. 2025 — LOCCO benchmark for evaluating long-term memory of LLMs (ACL 2025 Findings)",
+      "Shah et al. 2025 — EvolveMem: self-adaptive hierarchical memory architecture (Workshop on Scaling Environments for Agents)",
+      "Kang et al. 2025 — Memory OS of AI Agent (EMNLP 2025)",
+      "Hu et al. 2025 — HiAgent: hierarchical working memory for long-horizon agent tasks (ACL 2025)",
+      "Phadke et al. 2025 — Truth-maintained memory agent with write-time filtering (NeurIPS 2025 workshop)",
+      "Honda et al. 2025 — ACT-R inspired memory architecture for LLM agents (HAI 2025)",
+      "Shen et al. 2025 — LAVA: layer-wise KV cache eviction with dynamic budget allocation",
+      "Shibata et al. 2021 — Learning with selective forgetting (IJCAI 2021)"
+    ],
+    "date_read": "2026-04-05",
+    "key_findings": [
+      "The paper's central finding — that adaptive budgeted forgetting improves F1 beyond 0.583 and reduces FMR — is asserted but not demonstrated with any actual experiment.",
+      "The mathematical framework (Eqs. 1–5, Algorithm 1) is internally consistent and conceptually reasonable, drawing on well-established ideas from cognitive science (ACT-R decay), information retrieval (TF-IDF-like scoring), and constrained optimization (knapsack-style selection).",
+      "The literature review (Table I) is genuinely useful: it systematically maps 15 prior works across memory architecture type, dataset, limitation, and reported metrics — this is the paper's most substantive contribution.",
+      "The 'theoretical stability analysis' is informal and trivial: claiming ∆_t → 0 because the budget constraint is enforced by construction is circular, not a convergence proof.",
+      "A metadata inconsistency undermines credibility: the paper claims 'Published online in Dec 2024' but cites multiple 2025 conference papers (ACL 2025, EMNLP 2025, NeurIPS 2025), making the stated publication date impossible."
+    ],
+    "score": 7.0,
+    "title": "Novel Memory Forgetting Techniques for Autonomous AI Agents: Balancing Relevance and Efficiency",
+    "tldr": "Proposes an 'adaptive budgeted forgetting framework' for long-horizon conversational agents that combines recency, frequency, and semantic scoring to prune memory under a fixed budget constraint. Critically, the paper contains NO original experiments — all reported numbers are lifted directly from prior work (LOCOMO, LOCCO, MultiWOZ baselines from refs [17], [18], [23]). The 'Ours' row in Table III states only inequalities ('>93.3%', '>0.643 F1') with zero empirical backing. The framework is purely theoretical/conceptual: equations and an algorithm are presented but never implemented, trained, or evaluated on any actual system.",
+    "topics": [
+      "agent memory management",
+      "long-horizon dialogue",
+      "memory forgetting",
+      "budget-constrained optimization",
+      "false memory reduction",
+      "conversational agents",
+      "agent architecture"
+    ]
   }
 }
