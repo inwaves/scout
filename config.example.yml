@@ -64,7 +64,7 @@ arxiv:
     - "cs.SE"    # Software Engineering (for coding agents)
     - "cs.CR"    # Cryptography and Security (for adversarial/red-teaming)
   max_results_per_category: 200
-  lookback_hours: 28
+  lookback_hours: 72
   max_retries: 5
   retry_backoff_seconds: 10.0
   query_pause_seconds: 10.0

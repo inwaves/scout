@@ -75,11 +75,21 @@ class TestSaveLastRun:
 
 
 class TestDetermineSince:
-    def test_uses_last_run_when_available(self) -> None:
+    def test_minimum_lookback_enforced(self) -> None:
+        """Even with a recent last_run, since is at least lookback_hours ago."""
         last = datetime(2026, 3, 27, 12, 0, 0, tzinfo=timezone.utc)
         now = datetime(2026, 3, 28, 12, 0, 0, tzinfo=timezone.utc)
         since = determine_since(last, lookback_hours=28, now=now)
-        assert since == last
+        expected_min = now - timedelta(hours=28)
+        # since should be the earlier of last_run and now-28h
+        assert since == expected_min  # now-28h = Mar 27 08:00, earlier than last_run Mar 27 12:00
+
+    def test_last_run_used_when_earlier_than_lookback(self) -> None:
+        """If last_run is older than lookback window, use last_run (wider window)."""
+        last = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 3, 28, 12, 0, 0, tzinfo=timezone.utc)
+        since = determine_since(last, lookback_hours=28, now=now)
+        assert since == last  # last_run is 8 days ago, much wider than 28h
 
     def test_falls_back_to_lookback_hours(self) -> None:
         now = datetime(2026, 3, 28, 12, 0, 0, tzinfo=timezone.utc)
@@ -87,8 +97,10 @@ class TestDetermineSince:
         expected = now - timedelta(hours=24)
         assert abs((since - expected).total_seconds()) < 1
 
-    def test_last_run_clamped_to_now(self) -> None:
+    def test_future_last_run_uses_minimum_lookback(self) -> None:
+        """A future last_run should not prevent looking back at least lookback_hours."""
         future = datetime(2099, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
         now = datetime(2026, 3, 28, 12, 0, 0, tzinfo=timezone.utc)
         since = determine_since(future, lookback_hours=28, now=now)
-        assert since == now
+        expected_min = now - timedelta(hours=28)
+        assert since == expected_min
