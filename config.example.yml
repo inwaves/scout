@@ -114,6 +114,8 @@ alerts:
 knowledge_base:
   path: "./knowledge_base"
   max_topic_references: 50
+  external_kb_path: null
+  kb_output_path: "./kb_output/papers"
 
 delivery:
   channels:

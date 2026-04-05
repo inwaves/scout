@@ -84,6 +84,8 @@ class AlertConfig:
 class KnowledgeBaseConfig:
     path: str = "./knowledge_base"
     max_topic_references: int = 50
+    external_kb_path: str | None = None
+    kb_output_path: str = "./kb_output/papers"
 
 
 @dataclass(slots=True)
@@ -166,6 +168,8 @@ def describe_config(config: PaperScoutConfig) -> str:
             f"Watchlist organizations: {len(config.watchlist.organizations)}",
             f"Alerts enabled: {'yes' if config.alerts.enabled else 'no'}",
             f"Knowledge base path: {config.knowledge_base.path}",
+            f"External KB path: {config.knowledge_base.external_kb_path or 'none'}",
+            f"KB output path: {config.knowledge_base.kb_output_path}",
             f"Delivery channels: {channels}",
             f"State file: {config.state_file}",
             f"Schedule scoring cron: {config.schedule.scoring_cron}",
@@ -496,6 +500,8 @@ def _parse_knowledge_base(section: Any) -> KnowledgeBaseConfig:
             "knowledge_base.max_topic_references",
             min_value=1,
         ),
+        external_kb_path=_optional_str(section_dict.get("external_kb_path")),
+        kb_output_path=_optional_str(section_dict.get("kb_output_path")) or defaults.kb_output_path,
     )
 
 

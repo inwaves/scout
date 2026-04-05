@@ -41,6 +41,7 @@ from .state import (
     load_last_run,
     save_last_run,
 )
+from .kb_writer import KBNoteWriter
 from .watchlist import WatchlistMatcher
 
 LOGGER = logging.getLogger(__name__)
@@ -136,6 +137,16 @@ def run_pipeline(
     except KnowledgeBaseError as exc:
         LOGGER.warning("Could not load knowledge base (%s). Proceeding with empty KB.", exc)
 
+    external_kb_path = config.knowledge_base.external_kb_path
+    if external_kb_path:
+        try:
+            knowledge_base.load_external_kb(external_kb_path)
+        except KnowledgeBaseError as exc:
+            LOGGER.warning(
+                "Could not load external KB markdown notes (%s). Proceeding without external KB context.",
+                exc,
+            )
+
     s2_client = SemanticScholarClient(
         request_timeout_seconds=config.arxiv.request_timeout_seconds,
         pause_seconds=max(0.0, config.arxiv.query_pause_seconds / 2.0),
@@ -163,6 +174,7 @@ def run_pipeline(
         )
 
     deep_entries: list[DeepReadEntry] = []
+    deep_results_by_id: dict[str, DeepReadResult] = {}
     noteworthy_scored: list[ScoredPaper] = selected_scored
 
     if weekly and selected_scored:
@@ -215,12 +227,14 @@ def run_pipeline(
                     )
                 except DeepReadError:
                     LOGGER.exception("Deep read failed for %s", paper.arxiv_id)
-                    result = None
                     entry = _fallback_deep_entry(
                         paper=paper,
                         scored=scored_item,
                         watchlist_match=watch_match.matched_name if watch_match else None,
                     )
+                    result = _deep_entry_to_result(entry)
+
+                deep_results_by_id[paper.arxiv_id] = result
 
                 if watch_match and not entry.watchlist_match:
                     entry.watchlist_match = watch_match.matched_name
@@ -301,7 +315,11 @@ def run_pipeline(
                     if entry.paper.arxiv_id == alert.paper.arxiv_id
                 )
                 alert.deep_read = matching_entry
+                if alert.paper.arxiv_id not in deep_results_by_id:
+                    deep_results_by_id[alert.paper.arxiv_id] = _deep_entry_to_result(matching_entry)
                 continue
+
+            watch_match = watchlist_matches.get(alert.paper.arxiv_id)
 
             LOGGER.info(
                 "Hot alert deep read: %s (score=%.1f, reason=%s)",
@@ -312,6 +330,7 @@ def run_pipeline(
             try:
                 result = alert_reader.analyze_paper(alert.paper, alert.scored)
                 alert.deep_read = result.entry
+                deep_results_by_id[alert.paper.arxiv_id] = result
                 kb_record = _deep_result_to_kb_record(
                     result=result,
                     fallback_entry=result.entry,
@@ -323,11 +342,50 @@ def run_pipeline(
             except DeepReadError:
                 LOGGER.exception("Hot alert deep read failed for %s", alert.paper.arxiv_id)
 
+                fallback_entry = _fallback_deep_entry(
+                    paper=alert.paper,
+                    scored=alert.scored,
+                    watchlist_match=watch_match.matched_name if watch_match else None,
+                )
+                fallback_result = _deep_entry_to_result(fallback_entry)
+
+                alert.deep_read = fallback_entry
+                deep_results_by_id[alert.paper.arxiv_id] = fallback_result
+
+                kb_record = _deep_result_to_kb_record(
+                    result=fallback_result,
+                    fallback_entry=fallback_entry,
+                    timestamp=started_at,
+                )
+                knowledge_base.add_paper(kb_record)
+                kb_dirty_from_alerts = True
+
         if kb_dirty_from_alerts:
             try:
                 knowledge_base.save()
             except KnowledgeBaseError:
                 LOGGER.exception("Failed to save KB after hot alert deep reads.")
+
+    kb_stub_notes = 0
+    kb_full_notes = 0
+    try:
+        kb_stub_notes, kb_full_notes = _generate_kb_notes(
+            config=config,
+            paper_by_id=paper_by_id,
+            scored=scored,
+            deep_results_by_id=deep_results_by_id,
+            watchlist_matches=watchlist_matches,
+            knowledge_base=knowledge_base,
+        )
+    except Exception:
+        LOGGER.exception("Failed to generate KB-compatible paper notes.")
+    else:
+        LOGGER.info(
+            "Generated %d KB note(s): %d full, %d stub.",
+            kb_stub_notes + kb_full_notes,
+            kb_full_notes,
+            kb_stub_notes,
+        )
 
     run_cost_usd = cost_tracker.total_cost_usd
     total_cost_usd = prior_total_cost_usd + run_cost_usd
@@ -402,10 +460,13 @@ def run_pipeline(
         return 7
 
     LOGGER.info(
-        "Run complete: reviewed=%d, selected=%d, deep_reads=%d, delivered=%d channel(s), digest_cost=$%.4f, total_cost=$%.4f.",
+        "Run complete: reviewed=%d, selected=%d, deep_reads=%d, kb_notes=%d (full=%d, stub=%d), delivered=%d channel(s), digest_cost=$%.4f, total_cost=$%.4f.",
         len(papers),
         len(deep_entries) + len(noteworthy_entries),
-        len(deep_entries),
+        len(deep_results_by_id),
+        kb_stub_notes + kb_full_notes,
+        kb_full_notes,
+        kb_stub_notes,
         successful_deliveries,
         run_cost_usd,
         total_cost_usd,
@@ -922,6 +983,75 @@ def _dedupe(values: list[str]) -> list[str]:
         seen.add(value)
         deduped.append(value)
     return deduped
+
+
+def _deep_entry_to_result(entry: DeepReadEntry) -> DeepReadResult:
+    return DeepReadResult(
+        entry=entry,
+        topics=_fallback_topics(entry.paper),
+        key_findings=list(entry.breakdown.tldr[:3]),
+        builds_on=[],
+    )
+
+
+def _generate_kb_notes(
+    *,
+    config: PaperScoutConfig,
+    paper_by_id: dict[str, Paper],
+    scored: Sequence[ScoredPaper],
+    deep_results_by_id: dict[str, DeepReadResult],
+    watchlist_matches: dict[str, WatchlistMatch],
+    knowledge_base: KnowledgeBase,
+) -> tuple[int, int]:
+    writer = KBNoteWriter(config.knowledge_base.kb_output_path)
+
+    full_count = 0
+    for arxiv_id in sorted(deep_results_by_id):
+        result = deep_results_by_id[arxiv_id]
+        paper = paper_by_id.get(arxiv_id) or result.entry.paper
+        watch_match = watchlist_matches.get(arxiv_id)
+        watchlist_label = (
+            result.entry.watchlist_match
+            or (watch_match.matched_name if watch_match else None)
+        )
+        writer.write_deep_read_note(
+            paper=paper,
+            result=result,
+            watchlist_match=watchlist_label,
+        )
+        full_count += 1
+
+    deep_read_ids = set(deep_results_by_id)
+    seen_stub_ids: set[str] = set()
+    stub_count = 0
+
+    for scored_item in sorted(scored, key=lambda item: item.relevance_score, reverse=True):
+        if scored_item.relevance_score < 7.0:
+            continue
+        if scored_item.arxiv_id in deep_read_ids or scored_item.arxiv_id in seen_stub_ids:
+            continue
+        if knowledge_base.has_paper(scored_item.arxiv_id):
+            continue
+
+        paper = paper_by_id.get(scored_item.arxiv_id)
+        if paper is None:
+            continue
+
+        writer.write_stub_note(
+            paper=paper,
+            scored=scored_item,
+            tags=_stub_note_tags(paper, scored_item),
+        )
+        seen_stub_ids.add(scored_item.arxiv_id)
+        stub_count += 1
+
+    return stub_count, full_count
+
+
+def _stub_note_tags(paper: Paper, scored: ScoredPaper) -> list[str]:
+    raw_tags = list(paper.categories)
+    raw_tags.append(f"novelty-{scored.novelty_signal}")
+    return _dedupe(_sanitize_list(raw_tags))
 
 
 def _configure_logging(verbosity: int) -> None:

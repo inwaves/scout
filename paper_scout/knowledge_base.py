@@ -2,15 +2,25 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import threading
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 from .models import KBPaperRecord
 
 LOGGER = logging.getLogger(__name__)
+
+_H1_RE = re.compile(r"^#\s+(.+?)\s*$")
+_H2_RE = re.compile(r"^##\s+(.+?)\s*$")
+_IMAGE_RE = re.compile(r"!\[[^\]]*\]\([^)]+\)")
+_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+_BULLET_RE = re.compile(r"^\s*[-*+]\s+")
+_NUMBERED_BULLET_RE = re.compile(r"^\s*\d+[.)]\s+")
 
 
 class KnowledgeBaseError(RuntimeError):
@@ -25,6 +35,7 @@ class KnowledgeBase:
         self._topics_path = self.path / "topics.json"
         self._papers: dict[str, KBPaperRecord] = {}
         self._topics: dict[str, list[str]] = {}
+        self._external_ids: set[str] = set()
         self._lock = threading.RLock()
 
     def load(self) -> None:
@@ -36,6 +47,7 @@ class KnowledgeBase:
             topics_payload = self._read_json(self._topics_path, default={})
 
             self._papers = self._parse_papers_payload(papers_payload)
+            self._external_ids = set()
             parsed_topics = self._parse_topics_payload(
                 topics_payload,
                 known_ids=set(self._papers),
@@ -47,18 +59,55 @@ class KnowledgeBase:
                 self._topics = {}
                 self._rebuild_topics_index()
 
+    def load_external_kb(self, external_path: str | Path) -> None:
+        """Load paper records from external KB markdown files with YAML frontmatter."""
+        with self._lock:
+            source_dir = Path(external_path).expanduser()
+            if not source_dir.exists():
+                raise KnowledgeBaseError(f"External KB path does not exist: {source_dir}")
+            if not source_dir.is_dir():
+                raise KnowledgeBaseError(f"External KB path is not a directory: {source_dir}")
+
+            self._clear_external_records()
+
+            loaded_count = 0
+            used_ids: set[str] = set(self._papers.keys())
+            for note_path in sorted(source_dir.glob("*.md")):
+                record_id = _build_external_record_id(note_path, used_ids)
+                record = _parse_external_note_record(note_path, record_id)
+                if record is None:
+                    continue
+
+                used_ids.add(record.arxiv_id)
+                self._papers[record.arxiv_id] = record
+                self._add_paper_to_topics(record.arxiv_id, record.topics)
+                self._external_ids.add(record.arxiv_id)
+                loaded_count += 1
+
+            LOGGER.info(
+                "Loaded %d external KB paper note(s) from %s.",
+                loaded_count,
+                source_dir,
+            )
+
     def save(self) -> None:
         """Persist knowledge base to disk using atomic file replacement."""
         with self._lock:
             self.path.mkdir(parents=True, exist_ok=True)
 
             papers_payload = {
-                arxiv_id: asdict(record) for arxiv_id, record in sorted(self._papers.items())
+                arxiv_id: asdict(record)
+                for arxiv_id, record in sorted(self._papers.items())
+                if arxiv_id not in self._external_ids
             }
 
             topics_payload: dict[str, list[str]] = {}
             for topic_key, arxiv_ids in sorted(self._topics.items()):
-                filtered = [arxiv_id for arxiv_id in arxiv_ids if arxiv_id in self._papers]
+                filtered = [
+                    arxiv_id
+                    for arxiv_id in arxiv_ids
+                    if arxiv_id in self._papers and arxiv_id not in self._external_ids
+                ]
                 if filtered:
                     topics_payload[topic_key] = filtered[-self.max_topic_references :]
 
@@ -101,12 +150,21 @@ class KnowledgeBase:
                     seen_ids.add(arxiv_id)
                     ordered_ids.append(arxiv_id)
 
-            records = [self._papers[arxiv_id] for arxiv_id in ordered_ids if arxiv_id in self._papers]
-            records.sort(
-                key=lambda record: (_safe_iso_to_datetime(record.date_read), record.score),
-                reverse=True,
-            )
-            return records
+            local_records: list[KBPaperRecord] = []
+            external_records: list[KBPaperRecord] = []
+            for arxiv_id in ordered_ids:
+                record = self._papers.get(arxiv_id)
+                if record is None:
+                    continue
+                if arxiv_id in self._external_ids:
+                    external_records.append(record)
+                else:
+                    local_records.append(record)
+
+            sort_key = lambda record: (_safe_iso_to_datetime(record.date_read), record.score)
+            local_records.sort(key=sort_key, reverse=True)
+            external_records.sort(key=sort_key, reverse=True)
+            return local_records + external_records
 
     def get_paper(self, arxiv_id: str) -> KBPaperRecord | None:
         with self._lock:
@@ -225,6 +283,16 @@ class KnowledgeBase:
         for arxiv_id, record in self._papers.items():
             self._add_paper_to_topics(arxiv_id, record.topics)
 
+    def _clear_external_records(self) -> None:
+        if not self._external_ids:
+            return
+
+        for external_id in list(self._external_ids):
+            self._papers.pop(external_id, None)
+            self._remove_paper_from_topics(external_id)
+
+        self._external_ids.clear()
+
 
 def _parse_paper_record(raw: Any) -> KBPaperRecord | None:
     if not isinstance(raw, dict):
@@ -298,3 +366,205 @@ def _safe_iso_to_datetime(value: str) -> datetime:
     if parsed.tzinfo is not None:
         return parsed.astimezone(timezone.utc).replace(tzinfo=None)
     return parsed
+
+
+def _parse_external_note_record(path: Path, record_id: str) -> KBPaperRecord | None:
+    try:
+        raw_markdown = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        LOGGER.warning("Failed to read external KB note %s: %s", path, exc)
+        return None
+
+    frontmatter, body = _parse_markdown_frontmatter(raw_markdown, path)
+    sections = _extract_markdown_sections(body)
+
+    title = _coerce_text(frontmatter.get("title")) or _extract_first_h1(body) or path.stem
+    if not title:
+        return None
+
+    tags = _dedupe_preserve_order(_normalize_frontmatter_list(frontmatter.get("tags")))
+    authors = _dedupe_preserve_order(_normalize_frontmatter_list(frontmatter.get("authors")))
+    created = _coerce_iso_date(frontmatter.get("created")) or datetime.now(timezone.utc).date().isoformat()
+
+    summary_text = _markdown_to_plain_text(
+        sections.get("summary") or _extract_first_paragraph(body)
+    )
+    refs = _extract_reference_lines(sections.get("refs", ""))
+
+    engaged = _coerce_bool(frontmatter.get("engaged"))
+    insightful = _coerce_bool(frontmatter.get("insightful"))
+    score = 9.0 if insightful else (8.0 if engaged else 7.0)
+
+    return KBPaperRecord(
+        arxiv_id=record_id,
+        title=title,
+        authors=authors,
+        date_read=created,
+        score=score,
+        topics=tags,
+        key_findings=[summary_text] if summary_text else [],
+        builds_on=refs,
+        tldr=summary_text or title,
+    )
+
+
+def _build_external_record_id(path: Path, used_ids: set[str]) -> str:
+    slug = _slugify(path.stem) or "paper-note"
+    candidate = f"external:{slug}"
+    suffix = 2
+    while candidate in used_ids:
+        candidate = f"external:{slug}-{suffix}"
+        suffix += 1
+    return candidate
+
+
+def _slugify(text: str) -> str:
+    lowered = str(text).strip().lower()
+    return re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
+
+
+def _parse_markdown_frontmatter(markdown: str, source_path: Path) -> tuple[dict[str, Any], str]:
+    lines = markdown.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return {}, markdown
+
+    closing_index: int | None = None
+    for idx in range(1, len(lines)):
+        if lines[idx].strip() == "---":
+            closing_index = idx
+            break
+
+    if closing_index is None:
+        LOGGER.warning("Missing closing YAML frontmatter delimiter in %s.", source_path)
+        return {}, markdown
+
+    frontmatter_text = "\n".join(lines[1:closing_index])
+    body = "\n".join(lines[closing_index + 1 :]).lstrip("\n")
+
+    try:
+        loaded = yaml.safe_load(frontmatter_text) or {}
+    except yaml.YAMLError as exc:
+        LOGGER.warning("YAML parse error in external KB note %s: %s", source_path, exc)
+        return {}, body
+
+    if not isinstance(loaded, dict):
+        LOGGER.warning("Frontmatter in external KB note %s is not a mapping.", source_path)
+        return {}, body
+
+    return loaded, body
+
+
+def _extract_markdown_sections(body: str) -> dict[str, str]:
+    target_sections = {"summary", "questions", "refs", "notes"}
+    bucket: dict[str, list[str]] = {name: [] for name in target_sections}
+    current: str | None = None
+
+    for raw_line in body.splitlines():
+        heading_match = _H2_RE.match(raw_line.strip())
+        if heading_match:
+            heading = heading_match.group(1).strip().lower().rstrip(":")
+            current = heading if heading in target_sections else None
+            continue
+        if current:
+            bucket[current].append(raw_line)
+
+    return {name: "\n".join(lines).strip() for name, lines in bucket.items()}
+
+
+def _extract_first_h1(body: str) -> str:
+    for raw_line in body.splitlines():
+        match = _H1_RE.match(raw_line.strip())
+        if match:
+            return _coerce_text(match.group(1))
+    return ""
+
+
+def _extract_first_paragraph(body: str) -> str:
+    for block in re.split(r"\n\s*\n", body):
+        paragraph = block.strip()
+        if not paragraph or paragraph.startswith("#"):
+            continue
+        return paragraph
+    return ""
+
+
+def _markdown_to_plain_text(markdown: str) -> str:
+    text = markdown or ""
+    text = _IMAGE_RE.sub(" ", text)
+    text = _LINK_RE.sub(r"\1", text)
+    text = re.sub(r"`{1,3}", "", text)
+    text = re.sub(r"[*_~]", "", text)
+    text = re.sub(r"^\s*[-*+]\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*>\s?", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def _extract_reference_lines(markdown: str) -> list[str]:
+    refs: list[str] = []
+    for raw_line in markdown.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        line = _BULLET_RE.sub("", line)
+        line = _NUMBERED_BULLET_RE.sub("", line)
+        cleaned = _markdown_to_plain_text(line)
+        if cleaned:
+            refs.append(cleaned)
+    return _dedupe_preserve_order(refs)
+
+
+def _normalize_frontmatter_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        items = value
+    elif isinstance(value, str):
+        items = [part.strip() for part in value.split(",")] if "," in value else [value]
+    else:
+        items = [value]
+
+    cleaned: list[str] = []
+    for item in items:
+        text = str(item).strip()
+        if text:
+            cleaned.append(text)
+    return cleaned
+
+
+def _coerce_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "1", "yes", "y"}
+    return False
+
+
+def _coerce_iso_date(value: Any) -> str:
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+
+    text = str(value).strip() if value is not None else ""
+    if not text:
+        return ""
+
+    prefix = text[:10]
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", prefix):
+        return prefix
+
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return ""
+
+    return parsed.date().isoformat()
+
+
+def _coerce_text(value: Any) -> str:
+    if value is None:
+        return ""
+    return " ".join(str(value).split()).strip()
