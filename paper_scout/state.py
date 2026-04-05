@@ -82,12 +82,16 @@ def determine_since(
     else:
         now_utc = now.astimezone(timezone.utc)
 
+    minimum_since = now_utc - timedelta(hours=lookback_hours)
+
     if last_run is not None:
         if last_run.tzinfo is None:
-            return min(last_run.replace(tzinfo=timezone.utc), now_utc)
-        return min(last_run.astimezone(timezone.utc), now_utc)
+            last_run_utc = last_run.replace(tzinfo=timezone.utc)
+        else:
+            last_run_utc = last_run.astimezone(timezone.utc)
+        return min(last_run_utc, minimum_since, now_utc)
 
-    return now_utc - timedelta(hours=lookback_hours)
+    return minimum_since
 
 
 def _load_state_payload(path: Path) -> dict[str, Any] | None:
