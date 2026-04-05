@@ -38,6 +38,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Clone KB repo for external context
+        if: env.KB_CLONE_URL != ''
+        env:
+          KB_CLONE_URL: ${{ secrets.KB_CLONE_URL }}
+        run: |
+          git clone --depth 1 "${KB_CLONE_URL}" ../kb
+          echo "External KB cloned to ../kb"
+
       - name: Restore state and knowledge base
         continue-on-error: true
         uses: actions/cache@v4

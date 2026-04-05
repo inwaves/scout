@@ -409,6 +409,17 @@ def _parse_external_note_record(path: Path, record_id: str) -> KBPaperRecord | N
 
 
 def _build_external_record_id(path: Path, used_ids: set[str]) -> str:
+    """Build a record ID for an external KB note, preferring arXiv ID from frontmatter URL."""
+    try:
+        raw = path.read_text(encoding="utf-8")
+        frontmatter, _ = _parse_markdown_frontmatter(raw, path)
+        url = _coerce_text(frontmatter.get("url"))
+        arxiv_id = _extract_arxiv_id_from_url(url)
+        if arxiv_id and arxiv_id not in used_ids:
+            return arxiv_id
+    except Exception:
+        pass
+
     slug = _slugify(path.stem) or "paper-note"
     candidate = f"external:{slug}"
     suffix = 2
@@ -416,6 +427,19 @@ def _build_external_record_id(path: Path, used_ids: set[str]) -> str:
         candidate = f"external:{slug}-{suffix}"
         suffix += 1
     return candidate
+
+
+def _extract_arxiv_id_from_url(url: str) -> str:
+    """Extract arXiv ID from a URL like https://arxiv.org/abs/2603.26410."""
+    if not url:
+        return ""
+    for marker in ("/abs/", "/pdf/"):
+        if marker in url:
+            candidate = url.split(marker, 1)[1]
+            candidate = candidate.strip().rstrip("/").removesuffix(".pdf")
+            candidate = re.sub(r"v\d+$", "", candidate)
+            return candidate.strip()
+    return ""
 
 
 def _slugify(text: str) -> str:
