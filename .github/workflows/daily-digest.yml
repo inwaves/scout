@@ -89,6 +89,6 @@ jobs:
         run: |
           git config user.name "Scout Bot"
           git config user.email "scout[bot]@users.noreply.github.com"
-          git add digests/ last_run.json knowledge_base/ || true
+          git add digests/ kb_output/ last_run.json knowledge_base/ || true
           git diff --cached --quiet || git commit -m "📄 Scout digest $(date -u +%Y-%m-%d)"
           git push
