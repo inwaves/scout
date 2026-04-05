@@ -82,10 +82,8 @@ class AlertConfig:
 
 @dataclass(slots=True)
 class KnowledgeBaseConfig:
-    path: str = "./knowledge_base"
+    papers_path: str | None = None
     max_topic_references: int = 50
-    external_kb_path: str | None = None
-    kb_output_path: str = "./kb_output/papers"
 
 
 @dataclass(slots=True)
@@ -167,9 +165,7 @@ def describe_config(config: PaperScoutConfig) -> str:
             f"Watchlist authors: {len(config.watchlist.authors)}",
             f"Watchlist organizations: {len(config.watchlist.organizations)}",
             f"Alerts enabled: {'yes' if config.alerts.enabled else 'no'}",
-            f"Knowledge base path: {config.knowledge_base.path}",
-            f"External KB path: {config.knowledge_base.external_kb_path or 'none'}",
-            f"KB output path: {config.knowledge_base.kb_output_path}",
+            f"Knowledge base papers path: {config.knowledge_base.papers_path or 'none'}",
             f"Delivery channels: {channels}",
             f"State file: {config.state_file}",
             f"Schedule scoring cron: {config.schedule.scoring_cron}",
@@ -494,14 +490,12 @@ def _parse_knowledge_base(section: Any) -> KnowledgeBaseConfig:
     defaults = KnowledgeBaseConfig()
 
     return KnowledgeBaseConfig(
-        path=_optional_str(section_dict.get("path")) or defaults.path,
+        papers_path=_optional_str(section_dict.get("papers_path")),
         max_topic_references=_as_int(
             section_dict.get("max_topic_references", defaults.max_topic_references),
             "knowledge_base.max_topic_references",
             min_value=1,
         ),
-        external_kb_path=_optional_str(section_dict.get("external_kb_path")),
-        kb_output_path=_optional_str(section_dict.get("kb_output_path")) or defaults.kb_output_path,
     )
 
 

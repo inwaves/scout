@@ -112,10 +112,8 @@ alerts:
   watchlist_score_threshold: 8
 
 knowledge_base:
-  path: "./knowledge_base"
+  papers_path: null
   max_topic_references: 50
-  external_kb_path: null
-  kb_output_path: "./kb_output/papers"
 
 delivery:
   channels:

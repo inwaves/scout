@@ -34,8 +34,18 @@ class MarkdownFileDelivery:
 
         try:
             self.output_dir.mkdir(parents=True, exist_ok=True)
-            path.write_text(markdown_body, encoding="utf-8")
+
+            if path.exists():
+                separator = (
+                    "\n---\n\n"
+                    f"# Re-run appended at {now.strftime('%Y-%m-%d %H:%M:%SZ')}\n\n"
+                )
+                with path.open("a", encoding="utf-8") as handle:
+                    handle.write(separator)
+                    handle.write(markdown_body)
+                self._logger.info("Appended markdown digest to %s", path)
+            else:
+                path.write_text(markdown_body, encoding="utf-8")
+                self._logger.info("Wrote markdown digest to %s", path)
         except OSError as exc:
             raise DeliveryError(f"Failed to write markdown digest to {path}: {exc}") from exc
-
-        self._logger.info("Wrote markdown digest to %s", path)
