@@ -38,8 +38,8 @@ class EmailDelivery:
         message["Subject"] = subject
         message["From"] = self.from_address
         message["To"] = self.to_address
-        message.set_content(markdown_body)
-        message.add_alternative(html_body, subtype="html")
+        message.set_content(markdown_body, charset="utf-8")
+        message.add_alternative(html_body, subtype="html", charset="utf-8")
 
         try:
             with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=30) as smtp:
