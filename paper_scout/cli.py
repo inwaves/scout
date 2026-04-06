@@ -197,6 +197,18 @@ def run_pipeline(
                 if paper is None:
                     continue
 
+                if cost_tracker.total_cost_usd >= config.analysis.max_run_cost_usd:
+                    LOGGER.warning(
+                        "Cost budget exceeded ($%.2f >= $%.2f). Skipping remaining %d deep read(s).",
+                        cost_tracker.total_cost_usd,
+                        config.analysis.max_run_cost_usd,
+                        len(deep_targets) - deep_index + 1,
+                    )
+                    for remaining in deep_targets[deep_index - 1 :]:
+                        if remaining.arxiv_id not in deep_results_by_id:
+                            noteworthy_scored.append(remaining)
+                    break
+
                 LOGGER.info(
                     "Deep read %d/%d: %s (score=%.1f)",
                     deep_index,
@@ -303,6 +315,15 @@ def run_pipeline(
                 continue
 
             watch_match = watchlist_matches.get(alert.paper.arxiv_id)
+
+            if cost_tracker.total_cost_usd >= config.analysis.max_run_cost_usd:
+                LOGGER.warning(
+                    "Cost budget exceeded ($%.2f >= $%.2f). Skipping hot alert deep read for %s.",
+                    cost_tracker.total_cost_usd,
+                    config.analysis.max_run_cost_usd,
+                    alert.paper.arxiv_id,
+                )
+                continue
 
             LOGGER.info(
                 "Hot alert deep read: %s (score=%.1f, reason=%s)",
