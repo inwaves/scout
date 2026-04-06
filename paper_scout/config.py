@@ -52,11 +52,12 @@ class ScoringConfig:
 
 @dataclass(slots=True)
 class AnalysisConfig:
-    deep_read_count: int = 5
+    deep_read_count: int = 3
     model: str = "claude-sonnet-4-6"
     temperature: float = 0.2
-    max_output_tokens: int = 8192
-    max_agent_turns: int = 10
+    max_output_tokens: int = 4096
+    max_agent_turns: int = 4
+    max_run_cost_usd: float = 3.0
 
 
 @dataclass(slots=True)
@@ -405,6 +406,11 @@ def _parse_analysis(section: Any) -> AnalysisConfig:
             "analysis.max_agent_turns",
             min_value=1,
             max_value=50,
+        ),
+        max_run_cost_usd=_as_float(
+            section_dict.get("max_run_cost_usd", defaults.max_run_cost_usd),
+            "analysis.max_run_cost_usd",
+            min_value=0.1,
         ),
     )
 

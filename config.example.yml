@@ -83,11 +83,12 @@ scoring:
   summary_words: 150
 
 analysis:
-  deep_read_count: 5
+  deep_read_count: 3
   model: "claude-sonnet-4-6"
   temperature: 0.2
-  max_output_tokens: 8192
-  max_agent_turns: 10
+  max_output_tokens: 4096
+  max_agent_turns: 4
+  max_run_cost_usd: 3.0
 
 watchlist:
   organizations:

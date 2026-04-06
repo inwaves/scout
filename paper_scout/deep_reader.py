@@ -58,6 +58,9 @@ class DeepReadAgent:
             response = self._create_message(messages)
             blocks = _extract_content_blocks(response)
 
+            if turn == 1:
+                _strip_document_blocks(messages)
+
             produce_payload = _extract_produce_payload(blocks)
             if produce_payload is not None:
                 return self._build_result_from_payload(paper, scored, produce_payload)
@@ -151,16 +154,17 @@ class DeepReadAgent:
     def _build_system_prompt(self) -> str:
         return (
             "You are Scout's deep-read research agent.\n"
-            "Read the full paper PDF carefully and investigate what matters most for the user's profile.\n\n"
+            "Read the paper PDF and produce a concise structured analysis.\n\n"
+            "CRITICAL COST CONSTRAINT — BE CONCISE:\n"
+            "- Each section of the breakdown must be 2-3 sentences MAX.\n"
+            "- Total output should be ~300 words. Do NOT write essay-length sections.\n"
+            "- Focus on the first 15 pages of the paper. Skip appendices, supplementary material, and bibliography.\n"
+            "- Prefer calling produce_deep_read on your FIRST turn if possible.\n"
+            "- Only use tools (kb_lookup, s2_paper_info) if you genuinely need external context. Do not call tools speculatively.\n\n"
             "You may call tools when helpful:\n"
             "- kb_lookup: check prior papers in Scout's knowledge base by topic.\n"
             "- s2_paper_info: retrieve Semantic Scholar metadata, references, and affiliations.\n"
             "- s2_reference_details: inspect a referenced paper.\n\n"
-            "Agentic behavior requirements:\n"
-            "- Notice surprising claims, questionable assumptions, or unusual methodology choices.\n"
-            "- Use tools selectively based on what you observe in the paper.\n"
-            "- Ground context in actual references when available.\n"
-            "- Be explicit about uncertainty when data is missing.\n\n"
             "When you are ready, CALL produce_deep_read exactly once with the complete structured output.\n"
             "Do not return final prose only; finalize via produce_deep_read.\n\n"
             "IMPORTANT for builds_on: include arXiv IDs where you know them, formatted as:\n"
@@ -488,6 +492,43 @@ def _extract_content_blocks(response: Any) -> list[Any]:
     if isinstance(content, str):
         return [{"type": "text", "text": content}]
     return [content]
+
+
+def _strip_document_blocks(messages: list[dict[str, Any]]) -> None:
+    """Remove PDF document blocks from the first user message to avoid re-billing.
+
+    After the model has read the PDF on turn 1, subsequent turns do not need the
+    full document. This replaces document blocks with a short text placeholder.
+    """
+    if not messages:
+        return
+
+    first_msg = messages[0]
+    content = first_msg.get("content")
+    if not isinstance(content, list):
+        return
+
+    new_content: list[dict[str, Any]] = []
+    stripped = False
+    for block in content:
+        block_type = ""
+        if isinstance(block, dict):
+            block_type = block.get("type", "")
+        else:
+            block_type = str(getattr(block, "type", ""))
+
+        if block_type == "document":
+            if not stripped:
+                new_content.append({
+                    "type": "text",
+                    "text": "[PDF was provided on turn 1 and has been read. Refer to your notes above.]",
+                })
+                stripped = True
+        else:
+            new_content.append(block)
+
+    if stripped:
+        first_msg["content"] = new_content
 
 
 def _extract_produce_payload(blocks: list[Any]) -> dict[str, Any] | None:
