@@ -441,10 +441,21 @@ def run_pipeline(
         _deliver_hot_alerts(hot_alerts, channels)
 
     successful_deliveries = 0
+    channels_attempted = 0
     if not channels:
         LOGGER.warning("No enabled delivery channels configured.")
     else:
+        selected_count = len(deep_entries) + len(noteworthy_entries)
         for channel in channels:
+            channel_type = getattr(channel, "channel_type", "unknown")
+            # Skip non-file delivery channels when the digest is empty.
+            if selected_count == 0 and channel_type != "markdown":
+                LOGGER.info(
+                    "Empty digest — skipping delivery for channel '%s'.",
+                    channel_type,
+                )
+                continue
+            channels_attempted += 1
             try:
                 channel.deliver(
                     subject=rendered.subject,
@@ -458,7 +469,7 @@ def run_pipeline(
                     getattr(channel, "channel_type", "unknown"),
                 )
 
-    if channels and successful_deliveries == 0:
+    if channels_attempted > 0 and successful_deliveries == 0:
         LOGGER.error("All delivery channels failed. State file not updated.")
         return 6
 

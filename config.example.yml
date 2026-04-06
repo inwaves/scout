@@ -113,7 +113,7 @@ alerts:
   watchlist_score_threshold: 8
 
 knowledge_base:
-  papers_path: null
+  papers_path: "../kb/papers"
   max_topic_references: 50
 
 delivery:
