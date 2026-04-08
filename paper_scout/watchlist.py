@@ -38,6 +38,14 @@ class WatchlistMatcher:
             ):
                 return WatchlistMatch(match_type="author", matched_name=watched_name)
 
+        for org_name, _always_include, aliases in self._organization_patterns:
+            for author_normalized in normalized_paper_authors:
+                if any(alias in author_normalized or author_normalized in alias for alias in aliases):
+                    return WatchlistMatch(
+                        match_type="organization",
+                        matched_name=org_name,
+                    )
+
         if affiliations:
             flattened_affiliations: list[str] = []
             for items in affiliations.values():

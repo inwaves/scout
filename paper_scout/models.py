@@ -18,6 +18,7 @@ class Paper:
     published: datetime
     url: str
     pdf_url: str
+    source_label: str = ""
 
 
 @dataclass(slots=True)
