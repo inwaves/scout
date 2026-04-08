@@ -95,8 +95,35 @@ class TestLoadConfig:
         assert config.profile.name == "Test Profile"
         assert config.arxiv.categories == ["cs.AI"]
         assert config.scoring.threshold == 7.0
+        assert config.web_sources.enabled is False
+        assert config.web_sources.sources == []
         assert len(config.delivery_channels) == 1
         assert config.delivery_channels[0].type == "markdown"
+
+    def test_load_web_sources_config(self, tmp_path: Path) -> None:
+        content = textwrap.dedent("""\
+            profile:
+              name: "Test Profile"
+              description: "A test research profile."
+              scoring_rubric: "Score 1-10."
+            web_sources:
+              enabled: true
+              sources:
+                - type: "openai"
+                  enabled: true
+                - type: "deepmind"
+                  enabled: false
+              max_items_per_source: 25
+        """)
+        path = tmp_path / "scout.yml"
+        path.write_text(content, encoding="utf-8")
+
+        config = load_config(path)
+        assert config.web_sources.enabled is True
+        assert [source.type for source in config.web_sources.sources] == ["openai", "deepmind"]
+        assert config.web_sources.sources[0].enabled is True
+        assert config.web_sources.sources[1].enabled is False
+        assert config.web_sources.max_items_per_source == 25
 
     def test_load_full_config(self, full_config_file: Path) -> None:
         config = load_config(full_config_file)

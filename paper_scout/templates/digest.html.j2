@@ -116,6 +116,10 @@
           <strong>Score:</strong> {{ entry.relevance_score | fmt_score }}/10
           &nbsp;·&nbsp;
           <strong>Novelty:</strong> {{ entry.novelty_signal }}
+          {% if entry.paper.source_label %}
+          &nbsp;·&nbsp;
+          <strong>Source:</strong> {{ entry.paper.source_label }}
+          {% endif %}
           {% if entry.watchlist_match %}
           &nbsp;·&nbsp;
           <strong>Watchlist:</strong> {{ entry.watchlist_match }}
@@ -174,6 +178,9 @@
         <li>
           <a href="{{ entry.paper.url }}"><strong>{{ entry.paper.title }}</strong></a>
           — {{ entry.relevance_score | fmt_score }}/10
+          {% if entry.paper.source_label %}
+          · Source: {{ entry.paper.source_label }}
+          {% endif %}
           {% if entry.watchlist_match %}
           · Watchlist: {{ entry.watchlist_match }}
           {% endif %}

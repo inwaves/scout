@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import urllib.parse
 from dataclasses import asdict
 from typing import Any
 
@@ -154,11 +155,11 @@ class DeepReadAgent:
     def _build_system_prompt(self) -> str:
         return (
             "You are Scout's deep-read research agent.\n"
-            "Read the paper PDF and produce a concise structured analysis.\n\n"
+            "Read the paper PDF when available, or analyze based on the provided metadata if the item is a web post without a PDF.\n\n"
             "CRITICAL COST CONSTRAINT — BE CONCISE:\n"
             "- Each section of the breakdown must be 2-3 sentences MAX.\n"
             "- Total output should be ~300 words. Do NOT write essay-length sections.\n"
-            "- Focus on the first 15 pages of the paper. Skip appendices, supplementary material, and bibliography.\n"
+            "- Focus on the main body of the paper or post. If a PDF is available, prioritize the first 15 pages and skip appendices, supplementary material, and bibliography.\n"
             "- Prefer calling produce_deep_read on your FIRST turn if possible.\n"
             "- Only use tools (kb_lookup, s2_paper_info) if you genuinely need external context. Do not call tools speculatively.\n\n"
             "You may call tools when helpful:\n"
@@ -190,30 +191,54 @@ class DeepReadAgent:
             "novelty_signal": scored.novelty_signal,
         }
 
-        return {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": (
-                        "Analyze this paper in depth for the profile above.\n"
-                        "Use tools as needed and finalize with produce_deep_read.\n"
-                        "Paper metadata:\n"
-                        f"{json.dumps(metadata, ensure_ascii=False, indent=2)}"
-                    ),
-                },
+        content: list[dict[str, Any]] = [
+            {
+                "type": "text",
+                "text": (
+                    "Analyze this paper in depth for the profile above.\n"
+                    "Use tools as needed and finalize with produce_deep_read.\n"
+                    "Paper metadata:\n"
+                    f"{json.dumps(metadata, ensure_ascii=False, indent=2)}"
+                ),
+            }
+        ]
+
+        if _looks_like_pdf_url(paper.pdf_url):
+            content.append(
                 {
                     "type": "document",
                     "source": {
                         "type": "url",
                         "url": paper.pdf_url,
                     },
-                },
+                }
+            )
+        else:
+            abstract_text = paper.abstract.strip() or (
+                "No abstract or page description was available for this web post."
+            )
+            content.append(
                 {
                     "type": "text",
-                    "text": "Begin your deep-read analysis now.",
-                },
-            ],
+                    "text": (
+                        "This paper is a web post. Full text is not available as a PDF.\n"
+                        "Analyze based on the abstract and metadata above.\n\n"
+                        "Web post abstract/description:\n"
+                        f"{abstract_text}"
+                    ),
+                }
+            )
+
+        content.append(
+            {
+                "type": "text",
+                "text": "Begin your deep-read analysis now.",
+            }
+        )
+
+        return {
+            "role": "user",
+            "content": content,
         }
 
     def _execute_tool(self, tool_name: str, tool_input: dict[str, Any], paper: Paper) -> dict[str, Any]:
@@ -643,3 +668,8 @@ def _coerce_int(value: Any) -> int:
     except (TypeError, ValueError):
         return 0
     return max(0, parsed)
+
+
+def _looks_like_pdf_url(url: str) -> bool:
+    parsed = urllib.parse.urlparse(_as_string(url))
+    return parsed.path.lower().endswith(".pdf")

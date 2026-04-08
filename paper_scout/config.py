@@ -37,6 +37,24 @@ class ArxivConfig:
 
 
 @dataclass(slots=True)
+class WebSourceConfig:
+    type: str
+    enabled: bool = True
+
+
+@dataclass(slots=True)
+class WebSourcesConfig:
+    enabled: bool = False
+    sources: list[WebSourceConfig] = field(default_factory=list)
+    request_timeout_seconds: float = 30.0
+    max_retries: int = 3
+    retry_backoff_seconds: float = 5.0
+    query_pause_seconds: float = 1.0
+    max_items_per_source: int = 50
+    fetch_page_metadata: bool = True
+
+
+@dataclass(slots=True)
 class ScoringConfig:
     model: str = "claude-sonnet-4-6"
     batch_size: int = 10
@@ -116,6 +134,7 @@ class PaperScoutConfig:
     profile: ProfileConfig
     arxiv: ArxivConfig
     scoring: ScoringConfig
+    web_sources: WebSourcesConfig = field(default_factory=WebSourcesConfig)
     analysis: AnalysisConfig = field(default_factory=AnalysisConfig)
     watchlist: WatchlistConfig = field(default_factory=WatchlistConfig)
     alerts: AlertConfig = field(default_factory=AlertConfig)
@@ -148,6 +167,9 @@ def describe_config(config: PaperScoutConfig) -> str:
         f"{channel.type}{'' if channel.enabled else ' (disabled)'}"
         for channel in config.delivery_channels
     ) or "none"
+    enabled_web_sources = [
+        source.type for source in config.web_sources.sources if source.enabled
+    ]
 
     return "\n".join(
         [
@@ -156,6 +178,8 @@ def describe_config(config: PaperScoutConfig) -> str:
             f"arXiv categories: {', '.join(config.arxiv.categories)}",
             f"arXiv max per category: {config.arxiv.max_results_per_category}",
             f"Lookback hours: {config.arxiv.lookback_hours}",
+            f"Web sources enabled: {'yes' if config.web_sources.enabled else 'no'}",
+            f"Web source types: {', '.join(enabled_web_sources) or 'none'}",
             f"Scoring model: {config.scoring.model}",
             f"LLM batch size: {config.scoring.batch_size}",
             f"Threshold: {config.scoring.threshold}",
@@ -227,6 +251,7 @@ def _parse_config(raw: dict[str, Any], path: Path) -> PaperScoutConfig:
     profile = _parse_profile(raw.get("profile"))
     arxiv = _parse_arxiv(raw.get("arxiv", {}))
     scoring = _parse_scoring(raw.get("scoring", {}))
+    web_sources = _parse_web_sources(raw.get("web_sources", {}))
     analysis = _parse_analysis(raw.get("analysis", {}))
     watchlist = _parse_watchlist(raw.get("watchlist", {}))
     alerts = _parse_alerts(raw.get("alerts", {}))
@@ -242,6 +267,7 @@ def _parse_config(raw: dict[str, Any], path: Path) -> PaperScoutConfig:
         profile=profile,
         arxiv=arxiv,
         scoring=scoring,
+        web_sources=web_sources,
         analysis=analysis,
         watchlist=watchlist,
         alerts=alerts,
@@ -310,6 +336,84 @@ def _parse_arxiv(section: Any) -> ArxivConfig:
             "arxiv.query_pause_seconds",
             min_value=0.0,
         ),
+    )
+
+
+def _parse_web_sources(section: Any) -> WebSourcesConfig:
+    section_dict = _ensure_dict(section, "web_sources")
+    defaults = WebSourcesConfig()
+
+    sources_raw = section_dict.get("sources", [])
+    if sources_raw is None:
+        sources_raw = []
+    if not isinstance(sources_raw, list):
+        raise ConfigError("web_sources.sources must be a list.")
+
+    allowed_source_types: set[str] | None = None
+    if sources_raw:
+        try:
+            from .web_fetcher import BUILTIN_SOURCES
+        except Exception as exc:
+            raise ConfigError(f"Unable to load built-in web source definitions: {exc}") from exc
+        allowed_source_types = set(BUILTIN_SOURCES)
+
+    sources = [
+        _parse_web_source(item, index, allowed_source_types)
+        for index, item in enumerate(sources_raw)
+    ]
+
+    return WebSourcesConfig(
+        enabled=_as_bool(section_dict.get("enabled", defaults.enabled), "web_sources.enabled"),
+        sources=sources,
+        request_timeout_seconds=_as_float(
+            section_dict.get("request_timeout_seconds", defaults.request_timeout_seconds),
+            "web_sources.request_timeout_seconds",
+            min_value=1.0,
+        ),
+        max_retries=_as_int(
+            section_dict.get("max_retries", defaults.max_retries),
+            "web_sources.max_retries",
+            min_value=1,
+            max_value=10,
+        ),
+        retry_backoff_seconds=_as_float(
+            section_dict.get("retry_backoff_seconds", defaults.retry_backoff_seconds),
+            "web_sources.retry_backoff_seconds",
+            min_value=0.1,
+        ),
+        query_pause_seconds=_as_float(
+            section_dict.get("query_pause_seconds", defaults.query_pause_seconds),
+            "web_sources.query_pause_seconds",
+            min_value=0.0,
+        ),
+        max_items_per_source=_as_int(
+            section_dict.get("max_items_per_source", defaults.max_items_per_source),
+            "web_sources.max_items_per_source",
+            min_value=1,
+        ),
+        fetch_page_metadata=_as_bool(
+            section_dict.get("fetch_page_metadata", defaults.fetch_page_metadata),
+            "web_sources.fetch_page_metadata",
+        ),
+    )
+
+
+def _parse_web_source(
+    section: Any,
+    index: int,
+    allowed_source_types: set[str] | None,
+) -> WebSourceConfig:
+    field_prefix = f"web_sources.sources[{index}]"
+    section_dict = _require_dict(section, field_prefix)
+
+    source_type = _as_non_empty_str(section_dict.get("type"), f"{field_prefix}.type").lower()
+    if allowed_source_types is not None and source_type not in allowed_source_types:
+        allowed = ", ".join(sorted(allowed_source_types))
+        raise ConfigError(f"{field_prefix}.type must be one of: {allowed}.")
+
+    return WebSourceConfig(
+        type=source_type,
+        enabled=_as_bool(section_dict.get("enabled", True), f"{field_prefix}.enabled"),
     )
 
 

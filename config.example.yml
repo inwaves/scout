@@ -70,6 +70,24 @@ arxiv:
   query_pause_seconds: 10.0
   request_timeout_seconds: 60.0
 
+web_sources:
+  enabled: true
+  sources:
+    - type: "anthropic_alignment"
+      enabled: true
+    - type: "anthropic_news"
+      enabled: true
+    - type: "openai"
+      enabled: true
+    - type: "deepmind"
+      enabled: true
+  request_timeout_seconds: 30.0
+  max_retries: 3
+  retry_backoff_seconds: 5.0
+  query_pause_seconds: 1.0
+  max_items_per_source: 50
+  fetch_page_metadata: true
+
 scoring:
   model: "claude-sonnet-4-6"
   batch_size: 10

@@ -13,7 +13,7 @@ _No papers met your criteria in this run._
 ---
 ### {{ loop.index }}. [{{ entry.paper.title }}]({{ entry.paper.url }})
 
-**Score: {{ entry.relevance_score | fmt_score }}/10** · Novelty: {{ entry.novelty_signal }}{% if entry.watchlist_match %} · Watchlist: {{ entry.watchlist_match }}{% endif %}  
+**Score: {{ entry.relevance_score | fmt_score }}/10** · Novelty: {{ entry.novelty_signal }}{% if entry.paper.source_label %} · Source: {{ entry.paper.source_label }}{% endif %}{% if entry.watchlist_match %} · Watchlist: {{ entry.watchlist_match }}{% endif %}  
 *Authors: {{ entry.paper.authors | join(", ") }}*  
 *Categories: {{ entry.paper.categories | join(", ") }}*
 
@@ -57,7 +57,7 @@ _No papers met your criteria in this run._
 ## Also Noteworthy
 
 {% for entry in noteworthy_entries %}
-- **[{{ entry.paper.title }}]({{ entry.paper.url }})** — {{ entry.relevance_score | fmt_score }}/10{% if entry.watchlist_match %} · Watchlist: {{ entry.watchlist_match }}{% endif %}. {{ entry.summary }} ([PDF]({{ entry.paper.pdf_url }}))
+- **[{{ entry.paper.title }}]({{ entry.paper.url }})** — {{ entry.relevance_score | fmt_score }}/10{% if entry.paper.source_label %} · Source: {{ entry.paper.source_label }}{% endif %}{% if entry.watchlist_match %} · Watchlist: {{ entry.watchlist_match }}{% endif %}. {{ entry.summary }} ([PDF]({{ entry.paper.pdf_url }}))
 {% endfor %}
 {% endif %}
 {% endif %}

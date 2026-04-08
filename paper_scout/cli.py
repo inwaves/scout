@@ -104,6 +104,22 @@ def run_pipeline(
 
     paper_by_id = {paper.arxiv_id: paper for paper in papers}
 
+    if config.web_sources.enabled:
+        from .web_fetcher import WebFetcher
+
+        web_fetcher = WebFetcher(config.web_sources, logger=LOGGER)
+        try:
+            web_papers = web_fetcher.fetch_new_posts(since)
+            LOGGER.info("Web sources: fetched %d posts.", len(web_papers))
+            for web_paper in web_papers:
+                if web_paper.arxiv_id in paper_by_id:
+                    continue
+                papers.append(web_paper)
+                paper_by_id[web_paper.arxiv_id] = web_paper
+            papers.sort(key=lambda item: item.published, reverse=True)
+        except Exception as exc:
+            LOGGER.error("Web source fetch failed: %s", exc)
+
     scored: list[ScoredPaper] = []
     if papers:
         if not config.anthropic_api_key:
