@@ -17,7 +17,9 @@ from .config import WebSourcesConfig
 from .models import Paper
 
 LOGGER = logging.getLogger(__name__)
-_USER_AGENT = "scout/0.1 (research digest; polite; +https://github.com/inwaves/scout)"
+_USER_AGENT = (
+    "Mozilla/5.0 (compatible; scout/0.1; +https://github.com/inwaves/scout)"
+)
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 _SPACE_RE = re.compile(r"\s+")
 _YEAR_PATH_RE = re.compile(r"^/20\d{2}/")
