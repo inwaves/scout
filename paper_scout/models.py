@@ -62,6 +62,7 @@ class KBPaperRecord:
     key_findings: list[str]
     builds_on: list[str]
     tldr: str
+    url: str = ""
 
 
 @dataclass(slots=True)

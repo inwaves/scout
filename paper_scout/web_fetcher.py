@@ -454,6 +454,10 @@ class WebFetcher:
             timezone.utc
         )
         normalized_title = _normalize_whitespace(title) or _title_from_url(normalized_url)
+        if not _normalize_whitespace(title):
+            self._logger.warning(
+                "No title extracted for %s — using fallback: %s", normalized_url, normalized_title,
+            )
         normalized_abstract = _normalize_whitespace(abstract) or (
             f"Web post from {source.source_label or source.org_name}."
         )
@@ -665,15 +669,28 @@ def _infer_date_range_from_url(url: str) -> tuple[datetime, datetime] | None:
 
 def _title_from_url(url: str) -> str:
     parsed = urllib.parse.urlparse(url)
-    slug = urllib.parse.unquote((parsed.path or "/").rstrip("/").split("/")[-1]).strip()
-    slug = slug.removesuffix(".pdf")
-    if not slug:
-        return "Untitled Web Post"
+    segments = [
+        urllib.parse.unquote(seg).strip()
+        for seg in (parsed.path or "/").rstrip("/").split("/")
+        if seg.strip()
+    ]
 
-    words = [part for part in re.split(r"[-_]+", slug) if part]
-    if not words:
-        return "Untitled Web Post"
-    return " ".join(word.capitalize() for word in words)
+    # Walk segments from the end, skip pure year/number segments.
+    slug = ""
+    for seg in reversed(segments):
+        cleaned = seg.removesuffix(".pdf").removesuffix(".html")
+        if cleaned and not cleaned.isdigit():
+            slug = cleaned
+            break
+
+    if slug:
+        words = [part for part in re.split(r"[-_]+", slug) if part]
+        if words:
+            return " ".join(word.capitalize() for word in words)
+
+    # Last resort: use the domain name so the alert is at least identifiable.
+    domain = parsed.netloc.lower().removeprefix("www.")
+    return f"Post on {domain}" if domain else "Untitled Web Post"
 
 
 def _canonicalize_url(url: str | None) -> str:

@@ -642,7 +642,7 @@ def _select_scored_for_digest(
             continue
         seen_ids.add(arxiv_id)
 
-        if knowledge_base.has_paper(arxiv_id):
+        if knowledge_base.known_paper(arxiv_id=arxiv_id, url=paper.url, title=paper.title):
             LOGGER.debug("Skipping %s (already present in knowledge base).", arxiv_id)
             continue
 
@@ -825,7 +825,7 @@ def _collect_hot_alerts(
     alerts_by_id: dict[str, HotAlert] = {}
 
     for paper in papers:
-        if knowledge_base.has_paper(paper.arxiv_id):
+        if knowledge_base.known_paper(arxiv_id=paper.arxiv_id, url=paper.url, title=paper.title):
             continue
 
         scored = score_by_id.get(paper.arxiv_id)
@@ -1012,11 +1012,13 @@ def _generate_kb_notes(
             continue
         if scored_item.arxiv_id in deep_read_ids or scored_item.arxiv_id in seen_stub_ids:
             continue
-        if knowledge_base.has_paper(scored_item.arxiv_id):
-            continue
 
         paper = paper_by_id.get(scored_item.arxiv_id)
         if paper is None:
+            continue
+        if knowledge_base.known_paper(
+            arxiv_id=scored_item.arxiv_id, url=paper.url, title=paper.title,
+        ):
             continue
 
         kb_note_writer.write_stub_note(

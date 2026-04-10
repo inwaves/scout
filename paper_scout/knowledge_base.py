@@ -26,6 +26,21 @@ class KnowledgeBaseError(RuntimeError):
     """Raised when knowledge base storage cannot be read or written."""
 
 
+def _normalize_title(title: str) -> str:
+    """Lowercase, strip punctuation/whitespace for fuzzy title matching."""
+    return re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
+
+
+def _normalize_url(url: str) -> str:
+    """Strip scheme, trailing slashes, and query/fragment for URL matching."""
+    cleaned = url.strip()
+    for prefix in ("https://", "http://"):
+        if cleaned.startswith(prefix):
+            cleaned = cleaned[len(prefix):]
+    cleaned = cleaned.split("?")[0].split("#")[0]
+    return cleaned.rstrip("/").lower()
+
+
 class KnowledgeBase:
     def __init__(
         self,
@@ -35,6 +50,8 @@ class KnowledgeBase:
         self.papers_path = Path(papers_path).expanduser() if papers_path else None
         self.max_topic_references = max(1, int(max_topic_references))
         self._papers: dict[str, KBPaperRecord] = {}
+        self._urls: dict[str, str] = {}  # normalized URL → arxiv_id
+        self._titles: dict[str, str] = {}  # normalized title → arxiv_id
         self._topics: dict[str, list[str]] = {}
         self._lock = threading.RLock()
 
@@ -42,6 +59,8 @@ class KnowledgeBase:
         """Load all *.md files from papers_path and build an in-memory index."""
         with self._lock:
             self._papers = {}
+            self._urls = {}
+            self._titles = {}
             self._topics = {}
 
             if self.papers_path is None:
@@ -63,10 +82,21 @@ class KnowledgeBase:
 
                 used_ids.add(record.arxiv_id)
                 self._papers[record.arxiv_id] = record
+                self._index_secondary(record)
                 self._add_paper_to_topics(record.arxiv_id, record.topics)
                 loaded_count += 1
 
             LOGGER.info("Loaded %d KB paper note(s) from %s.", loaded_count, self.papers_path)
+
+    def _index_secondary(self, record: KBPaperRecord) -> None:
+        """Add a record to the URL and title secondary indexes."""
+        if record.url:
+            norm_url = _normalize_url(record.url)
+            if norm_url:
+                self._urls.setdefault(norm_url, record.arxiv_id)
+        norm_title = _normalize_title(record.title)
+        if norm_title:
+            self._titles.setdefault(norm_title, record.arxiv_id)
 
     def add_paper(self, record: KBPaperRecord) -> None:
         """Add or update a paper record and refresh topic index entries."""
@@ -90,8 +120,10 @@ class KnowledgeBase:
                 key_findings=_dedupe_preserve_order(_sanitize_string_list(record.key_findings)),
                 builds_on=_dedupe_preserve_order(_sanitize_string_list(record.builds_on)),
                 tldr=record.tldr.strip(),
+                url=record.url.strip() if record.url else "",
             )
             self._papers[sanitized.arxiv_id] = sanitized
+            self._index_secondary(sanitized)
             self.update_topics(sanitized.arxiv_id, sanitized.topics)
 
     def lookup_topics(self, topics: list[str]) -> list[KBPaperRecord]:
@@ -125,6 +157,29 @@ class KnowledgeBase:
     def has_paper(self, arxiv_id: str) -> bool:
         with self._lock:
             return arxiv_id.strip() in self._papers
+
+    def has_paper_by_url(self, url: str) -> bool:
+        if not url:
+            return False
+        with self._lock:
+            return _normalize_url(url) in self._urls
+
+    def has_paper_by_title(self, title: str) -> bool:
+        if not title:
+            return False
+        with self._lock:
+            return _normalize_title(title) in self._titles
+
+    def known_paper(self, *, arxiv_id: str, url: str = "", title: str = "") -> bool:
+        """Check if a paper is known by ID, URL, or title (in that order)."""
+        with self._lock:
+            if arxiv_id.strip() in self._papers:
+                return True
+            if url and _normalize_url(url) in self._urls:
+                return True
+            if title and _normalize_title(title) in self._titles:
+                return True
+            return False
 
     def get_topic_papers(self, topic: str) -> list[str]:
         with self._lock:
@@ -248,6 +303,8 @@ def _parse_note_record(path: Path, record_id: str) -> KBPaperRecord | None:
     insightful = _coerce_bool(frontmatter.get("insightful"))
     score = 9.0 if insightful else (8.0 if engaged else 7.0)
 
+    url = _coerce_text(frontmatter.get("url"))
+
     return KBPaperRecord(
         arxiv_id=record_id,
         title=title,
@@ -258,6 +315,7 @@ def _parse_note_record(path: Path, record_id: str) -> KBPaperRecord | None:
         key_findings=[summary_text] if summary_text else [],
         builds_on=refs,
         tldr=summary_text or title,
+        url=url,
     )
 
 
