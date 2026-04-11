@@ -23,6 +23,8 @@ _USER_AGENT = (
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 _SPACE_RE = re.compile(r"\s+")
 _YEAR_PATH_RE = re.compile(r"^/20\d{2}/")
+_ARXIV_URL_RE = re.compile(r"arxiv\.org/(?:abs|pdf)/(\d{4}\.\d{4,5})")
+_PLACEHOLDER_TITLES = frozenset({"untitled", "untitled post", "no title", ""})
 
 
 class WebFetchError(RuntimeError):
@@ -172,16 +174,20 @@ class WebFetcher:
             title = _title_from_url(url)
             abstract = ""
             pdf_url: str | None = None
+            arxiv_id = ""
 
             if self.config.fetch_page_metadata:
                 try:
-                    meta_title, meta_description, meta_pdf_url = self._fetch_page_metadata(url)
+                    meta_title, meta_description, meta_pdf_url, meta_arxiv_id = (
+                        self._fetch_page_metadata(url)
+                    )
                 except Exception as exc:
                     self._logger.debug("Page metadata fetch failed for %s: %s", url, exc)
                 else:
                     title = meta_title or title
                     abstract = meta_description or abstract
                     pdf_url = meta_pdf_url
+                    arxiv_id = meta_arxiv_id
 
             papers.append(
                 self._build_paper(
@@ -191,6 +197,7 @@ class WebFetcher:
                     abstract=abstract,
                     published=published,
                     pdf_url=pdf_url,
+                    arxiv_id_override=arxiv_id,
                 )
             )
 
@@ -230,16 +237,20 @@ class WebFetcher:
             title = title_hint or _title_from_url(url)
             abstract = description_hint or ""
             pdf_url: str | None = None
+            arxiv_id = ""
 
             if self.config.fetch_page_metadata:
                 try:
-                    meta_title, meta_description, meta_pdf_url = self._fetch_page_metadata(url)
+                    meta_title, meta_description, meta_pdf_url, meta_arxiv_id = (
+                        self._fetch_page_metadata(url)
+                    )
                 except Exception as exc:
                     self._logger.debug("Page metadata fetch failed for %s: %s", url, exc)
                 else:
                     title = meta_title or title
                     abstract = meta_description or abstract
                     pdf_url = meta_pdf_url
+                    arxiv_id = meta_arxiv_id
 
             papers.append(
                 self._build_paper(
@@ -249,6 +260,7 @@ class WebFetcher:
                     abstract=abstract,
                     published=published,
                     pdf_url=pdf_url,
+                    arxiv_id_override=arxiv_id,
                 )
             )
 
@@ -369,7 +381,8 @@ class WebFetcher:
 
         return results
 
-    def _fetch_page_metadata(self, url: str) -> tuple[str, str, str | None]:
+    def _fetch_page_metadata(self, url: str) -> tuple[str, str, str | None, str]:
+        """Fetch page metadata. Returns (title, description, pdf_url, arxiv_id)."""
         html = self._fetch_text(url)
         soup = BeautifulSoup(html, "html.parser")
 
@@ -385,6 +398,16 @@ class WebFetcher:
             if title_tag is not None:
                 title = _normalize_whitespace(title_tag.get_text(" ", strip=True))
 
+        # Treat placeholder titles as empty so URL-based fallback kicks in.
+        if title.lower().strip() in _PLACEHOLDER_TITLES:
+            title = ""
+
+        # Fall back to the first <h1> on the page (catches Distill-template pages).
+        if not title:
+            h1_tag = soup.find("h1")
+            if h1_tag is not None:
+                title = _normalize_whitespace(h1_tag.get_text(" ", strip=True))
+
         description = _find_first_meta_content(
             soup,
             [
@@ -395,16 +418,20 @@ class WebFetcher:
         )
 
         pdf_url: str | None = None
+        arxiv_id = ""
         for tag in soup.find_all(["a", "link"], href=True):
             href = str(tag.get("href", "")).strip()
             if not href:
                 continue
             absolute_href = urllib.parse.urljoin(url, href)
-            if _looks_like_pdf_url(absolute_href):
+            if not pdf_url and _looks_like_pdf_url(absolute_href):
                 pdf_url = _canonicalize_url(absolute_href)
-                break
+            if not arxiv_id:
+                match = _ARXIV_URL_RE.search(absolute_href)
+                if match:
+                    arxiv_id = match.group(1)
 
-        return title, description, pdf_url
+        return title, description, pdf_url, arxiv_id
 
     def _make_paper_id(self, source: WebSourceDef, url: str) -> str:
         parsed = urllib.parse.urlparse(url)
@@ -447,6 +474,7 @@ class WebFetcher:
         abstract: str,
         published: datetime | None,
         pdf_url: str | None = None,
+        arxiv_id_override: str = "",
     ) -> Paper:
         normalized_url = _canonicalize_url(url)
         normalized_pdf_url = _canonicalize_url(pdf_url) if pdf_url else normalized_url
@@ -462,8 +490,12 @@ class WebFetcher:
             f"Web post from {source.source_label or source.org_name}."
         )
 
+        paper_id = arxiv_id_override.strip() if arxiv_id_override else ""
+        if not paper_id:
+            paper_id = self._make_paper_id(source, normalized_url)
+
         return Paper(
-            arxiv_id=self._make_paper_id(source, normalized_url),
+            arxiv_id=paper_id,
             title=normalized_title,
             abstract=normalized_abstract,
             authors=[source.org_name],

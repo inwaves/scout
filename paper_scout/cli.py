@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -111,11 +112,22 @@ def run_pipeline(
         try:
             web_papers = web_fetcher.fetch_new_posts(since)
             LOGGER.info("Web sources: fetched %d posts.", len(web_papers))
+            seen_titles: set[str] = {_normalize_merge_title(p.title) for p in papers}
             for web_paper in web_papers:
                 if web_paper.arxiv_id in paper_by_id:
                     continue
+                norm_title = _normalize_merge_title(web_paper.title)
+                if norm_title and norm_title in seen_titles:
+                    LOGGER.debug(
+                        "Skipping web paper %s (title duplicate of existing paper: %s).",
+                        web_paper.arxiv_id,
+                        web_paper.title,
+                    )
+                    continue
                 papers.append(web_paper)
                 paper_by_id[web_paper.arxiv_id] = web_paper
+                if norm_title:
+                    seen_titles.add(norm_title)
             papers.sort(key=lambda item: item.published, reverse=True)
         except Exception as exc:
             LOGGER.error("Web source fetch failed: %s", exc)
@@ -635,12 +647,20 @@ def _select_scored_for_digest(
     watchlist_items: list[ScoredPaper] = []
     scored_items: list[ScoredPaper] = []
     seen_ids: set[str] = set()
+    seen_titles: set[str] = set()
 
     for paper in papers:
         arxiv_id = paper.arxiv_id
         if arxiv_id in seen_ids:
             continue
         seen_ids.add(arxiv_id)
+
+        norm_title = _normalize_merge_title(paper.title)
+        if norm_title and norm_title in seen_titles:
+            LOGGER.debug("Skipping %s (title duplicate: %s).", arxiv_id, paper.title)
+            continue
+        if norm_title:
+            seen_titles.add(norm_title)
 
         if knowledge_base.known_paper(arxiv_id=arxiv_id, url=paper.url, title=paper.title):
             LOGGER.debug("Skipping %s (already present in knowledge base).", arxiv_id)
@@ -1088,6 +1108,11 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("test-fetch", help="Fetch papers only (no LLM calls)")
 
     return parser
+
+
+def _normalize_merge_title(title: str) -> str:
+    """Lowercase, strip punctuation/whitespace for cross-source title dedup."""
+    return re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
 
 
 def _compact_text(text: str, *, max_chars: int) -> str:

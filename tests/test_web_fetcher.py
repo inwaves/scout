@@ -188,3 +188,72 @@ class TestFetchSitemapSource:
         }
         assert "https://www.anthropic.com/blog/ignored" not in urls
         assert "https://www.anthropic.com/news/old-post" not in urls
+
+
+class TestFetchPageMetadata:
+    def test_placeholder_title_falls_back_to_h1(self) -> None:
+        fetcher = _build_fetcher(fetch_page_metadata=True)
+
+        html = """<html><head><title>Untitled</title></head>
+        <body><d-title><h1>Real Paper Title</h1></d-title>
+        <a href="https://arxiv.org/abs/2602.22755">arXiv</a>
+        </body></html>"""
+
+        fetcher._fetch_text = lambda url: html  # type: ignore[method-assign]
+        title, description, pdf_url, arxiv_id = fetcher._fetch_page_metadata(
+            "https://example.com/page"
+        )
+        assert title == "Real Paper Title"
+        assert arxiv_id == "2602.22755"
+
+    def test_extracts_arxiv_id_from_pdf_link(self) -> None:
+        fetcher = _build_fetcher(fetch_page_metadata=True)
+
+        html = """<html><head><title>Good Title</title></head>
+        <body><a href="https://arxiv.org/pdf/2604.07729v1">PDF</a></body></html>"""
+
+        fetcher._fetch_text = lambda url: html  # type: ignore[method-assign]
+        title, description, pdf_url, arxiv_id = fetcher._fetch_page_metadata(
+            "https://example.com/page"
+        )
+        assert title == "Good Title"
+        assert arxiv_id == "2604.07729"
+
+    def test_no_arxiv_link_returns_empty_id(self) -> None:
+        fetcher = _build_fetcher(fetch_page_metadata=True)
+
+        html = """<html><head><title>Blog Post</title></head>
+        <body><a href="/other-page">link</a></body></html>"""
+
+        fetcher._fetch_text = lambda url: html  # type: ignore[method-assign]
+        title, description, pdf_url, arxiv_id = fetcher._fetch_page_metadata(
+            "https://example.com/page"
+        )
+        assert title == "Blog Post"
+        assert arxiv_id == ""
+
+
+class TestBuildPaperArxivOverride:
+    def test_arxiv_id_override_replaces_synthetic_id(self) -> None:
+        fetcher = _build_fetcher()
+        paper = fetcher._build_paper(
+            source=BUILTIN_SOURCES["anthropic_alignment"],
+            url="https://alignment.anthropic.com/2026/auditbench",
+            title="AuditBench",
+            abstract="A benchmark.",
+            published=datetime(2026, 3, 1, tzinfo=timezone.utc),
+            arxiv_id_override="2602.22755",
+        )
+        assert paper.arxiv_id == "2602.22755"
+
+    def test_empty_override_uses_synthetic_id(self) -> None:
+        fetcher = _build_fetcher()
+        paper = fetcher._build_paper(
+            source=BUILTIN_SOURCES["anthropic_news"],
+            url="https://www.anthropic.com/news/some-post",
+            title="Some Post",
+            abstract="Description.",
+            published=datetime(2026, 3, 1, tzinfo=timezone.utc),
+            arxiv_id_override="",
+        )
+        assert paper.arxiv_id == "anthropic:some-post"
