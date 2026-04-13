@@ -445,6 +445,7 @@ def run_pipeline(
                 generated_at=started_at,
                 paper_by_id=paper_by_id,
                 scored=scored,
+                digest_selected_ids={s.arxiv_id for s in selected_scored},
                 deep_results_by_id=deep_results_by_id,
                 watchlist_matches=watchlist_matches,
                 knowledge_base=knowledge_base,
@@ -996,6 +997,7 @@ def _generate_kb_notes(
     generated_at: datetime,
     paper_by_id: dict[str, Paper],
     scored: Sequence[ScoredPaper],
+    digest_selected_ids: set[str],
     deep_results_by_id: dict[str, DeepReadResult],
     watchlist_matches: dict[str, WatchlistMatch],
     knowledge_base: KnowledgeBase,
@@ -1028,7 +1030,7 @@ def _generate_kb_notes(
     stub_count = 0
 
     for scored_item in sorted(scored, key=lambda item: item.relevance_score, reverse=True):
-        if scored_item.relevance_score < 7.0:
+        if scored_item.arxiv_id not in digest_selected_ids:
             continue
         if scored_item.arxiv_id in deep_read_ids or scored_item.arxiv_id in seen_stub_ids:
             continue
