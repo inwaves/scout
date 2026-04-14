@@ -695,21 +695,15 @@ def _select_scored_for_digest(
         else:
             scored_items.append(scored_item)
 
-    watchlist_items.sort(key=lambda item: item.relevance_score, reverse=True)
-    scored_items.sort(key=lambda item: item.relevance_score, reverse=True)
+    all_items = watchlist_items + scored_items
+    all_items.sort(key=lambda item: item.relevance_score, reverse=True)
 
     ordered: list[ScoredPaper] = []
-    watch_ids: set[str] = set()
-
-    for item in watchlist_items:
-        if item.arxiv_id in watch_ids:
+    seen: set[str] = set()
+    for item in all_items:
+        if item.arxiv_id in seen:
             continue
-        watch_ids.add(item.arxiv_id)
-        ordered.append(item)
-
-    for item in scored_items:
-        if item.arxiv_id in watch_ids:
-            continue
+        seen.add(item.arxiv_id)
         ordered.append(item)
 
     if len(watchlist_items) >= max_papers:
@@ -1002,11 +996,16 @@ def _generate_kb_notes(
     watchlist_matches: dict[str, WatchlistMatch],
     knowledge_base: KnowledgeBase,
 ) -> tuple[int, int]:
+    score_by_id = {s.arxiv_id: s.relevance_score for s in scored}
+
     full_count = 0
     for arxiv_id in sorted(deep_results_by_id):
         result = deep_results_by_id[arxiv_id]
         paper = paper_by_id.get(arxiv_id) or result.entry.paper
         watch_match = watchlist_matches.get(arxiv_id)
+        # Watchlist papers scoring below 4/10 stay in the digest but not in KB.
+        if watch_match and score_by_id.get(arxiv_id, 0.0) < 4.0:
+            continue
         watchlist_label = (
             result.entry.watchlist_match
             or (watch_match.matched_name if watch_match else None)
@@ -1037,6 +1036,9 @@ def _generate_kb_notes(
 
         paper = paper_by_id.get(scored_item.arxiv_id)
         if paper is None:
+            continue
+        # Watchlist papers scoring below 4/10 stay in the digest but not in KB.
+        if scored_item.arxiv_id in watchlist_matches and scored_item.relevance_score < 4.0:
             continue
         if knowledge_base.known_paper(
             arxiv_id=scored_item.arxiv_id, url=paper.url, title=paper.title,
