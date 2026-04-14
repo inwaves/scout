@@ -102,6 +102,7 @@ jobs:
           git config user.email "scout[bot]@users.noreply.github.com"
           git add papers/ || true
           git diff --cached --quiet || git commit -m "📄 Scout: new paper notes $(date -u +%Y-%m-%d)"
+          git pull --rebase
           git push
 
       - name: Commit digest and state files
