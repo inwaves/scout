@@ -27,6 +27,7 @@ class ScoredPaper:
     relevance_score: float
     rationale: str
     novelty_signal: NoveltySignal = "incremental"
+    ranking_score: float | None = None
 
 
 @dataclass(slots=True)
@@ -49,6 +50,7 @@ class DigestEntry:
     novelty_signal: NoveltySignal
     summary: str
     watchlist_match: str | None = None
+    ranking_score: float | None = None
 
 
 @dataclass(slots=True)
@@ -87,6 +89,7 @@ class DeepReadEntry:
     novelty_signal: NoveltySignal
     breakdown: DeepReadBreakdown
     watchlist_match: str | None = None  # "Anthropic", "Ethan Perez", etc.
+    ranking_score: float | None = None
 
 
 @dataclass(slots=True)

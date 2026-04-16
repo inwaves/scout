@@ -80,6 +80,16 @@ def full_config_file(tmp_path: Path) -> Path:
               output_dir: "./digests"
               filename_template: "digest-{date}.md"
 
+        feedback:
+          enabled: true
+          storage_path: "./feedback.sqlite3"
+          public_base_url: "https://scout.tail.example"
+          signing_secret: "test-feedback-secret"
+          bind_host: "0.0.0.0"
+          bind_port: 8787
+          max_adjustment: 1.25
+          min_feature_votes: 3
+
         schedule:
           cron: "0 8 * * *"
     """)
@@ -137,6 +147,12 @@ class TestLoadConfig:
         assert config.scoring.threshold == 8.0
         assert config.scoring.use_batch_api is False
         assert config.scoring.summary_words == 100
+        assert config.feedback.enabled is True
+        assert config.feedback.storage_path == "./feedback.sqlite3"
+        assert config.feedback.public_base_url == "https://scout.tail.example"
+        assert config.feedback.bind_port == 8787
+        assert config.feedback.max_adjustment == 1.25
+        assert config.feedback.min_feature_votes == 3
         assert config.schedule.cron == "0 8 * * *"
 
     def test_missing_config_file_raises(self, tmp_path: Path) -> None:
@@ -167,6 +183,7 @@ class TestLoadConfig:
         assert config.scoring.batch_size == 10
         assert config.scoring.max_papers == 15
         assert config.scoring.use_batch_api is True
+        assert config.feedback.enabled is False
         assert config.state_file == "last_run.json"
 
 

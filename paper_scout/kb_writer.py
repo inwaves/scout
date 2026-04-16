@@ -56,6 +56,8 @@ class KBNoteWriter:
         note_tags = _dedupe(_sanitize_list(result.topics)) or _dedupe(
             _sanitize_list(paper.categories)
         ) or ["uncategorized"]
+        if "scout" not in note_tags:
+            note_tags.append("scout")
 
         summary = _render_bullets(result.entry.breakdown.tldr) or "- No TL;DR generated."
         refs = _render_bullets(result.builds_on)
@@ -66,8 +68,8 @@ class KBNoteWriter:
             authors=authors,
             tags=note_tags,
             url=_single_line(paper.url),
-            engaged=True,
-            insightful=True,
+            engaged=False,
+            insightful=False,
             summary=summary,
             questions="",
             refs=refs,

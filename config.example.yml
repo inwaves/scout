@@ -134,6 +134,16 @@ knowledge_base:
   papers_path: "../kb/papers"
   max_topic_references: 50
 
+feedback:
+  enabled: false
+  storage_path: "./feedback.sqlite3"
+  public_base_url: "https://scout.your-tailnet.ts.net"
+  signing_secret: "${SCOUT_FEEDBACK_SIGNING_SECRET}"
+  bind_host: "127.0.0.1"
+  bind_port: 8787
+  max_adjustment: 1.5
+  min_feature_votes: 2
+
 delivery:
   channels:
     - type: "email"

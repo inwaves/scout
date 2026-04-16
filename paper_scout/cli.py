@@ -19,6 +19,13 @@ from .config import (
 from .deep_reader import DeepReadAgent, DeepReadError
 from .delivery import DeliveryError, build_delivery_channels
 from .digest import DigestRenderer
+from .feedback import (
+    FeedbackError,
+    FeedbackStore,
+    FeedbackTokenSigner,
+    load_preference_model,
+    run_feedback_server,
+)
 from .fetcher import ArxivFetcher
 from .knowledge_base import KnowledgeBase, KnowledgeBaseError
 from .models import (
@@ -64,6 +71,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "run":
         return _cmd_run(args)
+    if args.command == "serve-feedback":
+        return _cmd_serve_feedback(args)
     if args.command == "test-config":
         return _cmd_test_config(args)
     if args.command == "test-fetch":
@@ -154,6 +163,40 @@ def run_pipeline(
     else:
         LOGGER.info("No new papers found for this run window.")
 
+    feedback_store: FeedbackStore | None = None
+    feedback_signer: FeedbackTokenSigner | None = None
+    feedback_base_url: str | None = None
+
+    if config.feedback.enabled:
+        try:
+            feedback_store = FeedbackStore(config.feedback.storage_path)
+            feedback_store.initialize()
+        except FeedbackError as exc:
+            LOGGER.warning("Feedback disabled for this run: %s", exc)
+        else:
+            preference_model = load_preference_model(feedback_store, config.feedback)
+            if preference_model.total_votes:
+                scored = [
+                    preference_model.adjust_score(paper_by_id[item.arxiv_id], item)
+                    for item in scored
+                    if item.arxiv_id in paper_by_id
+                ]
+                LOGGER.info(
+                    "Applied %d historical feedback vote(s) to ranking.",
+                    preference_model.total_votes,
+                )
+            feedback_base_url = (config.feedback.public_base_url or "").strip() or None
+            signing_secret = (config.feedback.signing_secret or "").strip()
+            if feedback_base_url and signing_secret:
+                try:
+                    feedback_signer = FeedbackTokenSigner(signing_secret)
+                except FeedbackError as exc:
+                    LOGGER.warning("Feedback links disabled for this run: %s", exc)
+            elif feedback_base_url or signing_secret:
+                LOGGER.warning(
+                    "Feedback links require both feedback.public_base_url and feedback.signing_secret."
+                )
+
     score_by_id = {item.arxiv_id: item for item in scored if item.arxiv_id in paper_by_id}
 
     # Load KB from the single papers directory (markdown files only, no JSON).
@@ -238,10 +281,11 @@ def run_pipeline(
                     break
 
                 LOGGER.info(
-                    "Deep read %d/%d: %s (score=%.1f)",
+                    "Deep read %d/%d: %s (rank=%.1f, base=%.1f)",
                     deep_index,
                     len(deep_targets),
                     paper.title[:80],
+                    _ranking_score(scored_item),
                     scored_item.relevance_score,
                 )
 
@@ -268,6 +312,7 @@ def run_pipeline(
 
                 if watch_match and not entry.watchlist_match:
                     entry.watchlist_match = watch_match.matched_name
+                entry.ranking_score = scored_item.ranking_score
 
                 deep_entries.append(entry)
 
@@ -293,6 +338,7 @@ def run_pipeline(
                 novelty_signal=scored_item.novelty_signal,
                 summary=_compact_text(scored_item.rationale, max_chars=240),
                 watchlist_match=watch_match.matched_name if watch_match else None,
+                ranking_score=scored_item.ranking_score,
             )
         )
 
@@ -399,6 +445,8 @@ def run_pipeline(
     rendered = renderer.render(
         digest_context,
         subject_template=_select_subject_template(config),
+        feedback_base_url=feedback_base_url,
+        feedback_signer=feedback_signer,
     )
 
     LOGGER.info(
@@ -537,6 +585,40 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return run_pipeline(config, dry_run=args.dry_run, weekly=args.weekly)
 
 
+def _cmd_serve_feedback(args: argparse.Namespace) -> int:
+    try:
+        config = load_config(args.config)
+    except ConfigError as exc:
+        LOGGER.error("Configuration error: %s", exc)
+        return 2
+
+    if not config.feedback.enabled:
+        LOGGER.error("Feedback is disabled in config. Set feedback.enabled: true.")
+        return 2
+    if not config.feedback.signing_secret:
+        LOGGER.error("Feedback server requires feedback.signing_secret.")
+        return 2
+
+    try:
+        store = FeedbackStore(config.feedback.storage_path)
+        store.initialize()
+        signer = FeedbackTokenSigner(config.feedback.signing_secret)
+        run_feedback_server(
+            store=store,
+            signer=signer,
+            host=args.host or config.feedback.bind_host,
+            port=args.port or config.feedback.bind_port,
+            logger=LOGGER,
+        )
+    except FeedbackError as exc:
+        LOGGER.error("Feedback server failed: %s", exc)
+        return 2
+    except KeyboardInterrupt:
+        LOGGER.info("Feedback server stopped.")
+        return 0
+    return 0
+
+
 def _cmd_test_config(args: argparse.Namespace) -> int:
     try:
         config = load_config(args.config)
@@ -673,7 +755,7 @@ def _select_scored_for_digest(
         include_by_watchlist = (
             watch_match is not None and _watchlist_always_include(watch_match, watchlist_config)
         )
-        include_by_score = scored_item is not None and scored_item.relevance_score >= threshold
+        include_by_score = scored_item is not None and _ranking_score(scored_item) >= threshold
 
         if not include_by_watchlist and not include_by_score:
             continue
@@ -696,7 +778,7 @@ def _select_scored_for_digest(
             scored_items.append(scored_item)
 
     all_items = watchlist_items + scored_items
-    all_items.sort(key=lambda item: item.relevance_score, reverse=True)
+    all_items.sort(key=_ranking_score, reverse=True)
 
     ordered: list[ScoredPaper] = []
     seen: set[str] = set()
@@ -762,6 +844,7 @@ def _fallback_deep_entry(
         novelty_signal=scored.novelty_signal,
         breakdown=breakdown,
         watchlist_match=watchlist_match,
+        ranking_score=scored.ranking_score,
     )
 
 
@@ -845,13 +928,14 @@ def _collect_hot_alerts(
 
         scored = score_by_id.get(paper.arxiv_id)
         watch_match = watchlist_matches.get(paper.arxiv_id)
-        score = scored.relevance_score if scored else 0.0
+        score = _ranking_score(scored) if scored else 0.0
 
         reason: str | None = None
         if watch_match and watch_match.match_type == "author":
             reason = f"Watchlist author match: {watch_match.matched_name}"
         elif score >= config.alerts.score_threshold:
-            reason = f"High relevance score: {score:.1f}/10"
+            label = "High personalized score" if scored and scored.ranking_score is not None else "High relevance score"
+            reason = f"{label}: {score:.1f}/10"
         elif (
             watch_match
             and watch_match.match_type == "organization"
@@ -879,7 +963,7 @@ def _collect_hot_alerts(
         )
 
     alerts = list(alerts_by_id.values())
-    alerts.sort(key=lambda alert: alert.scored.relevance_score, reverse=True)
+    alerts.sort(key=lambda alert: _ranking_score(alert.scored), reverse=True)
     return alerts
 
 
@@ -1028,7 +1112,7 @@ def _generate_kb_notes(
     seen_stub_ids: set[str] = set()
     stub_count = 0
 
-    for scored_item in sorted(scored, key=lambda item: item.relevance_score, reverse=True):
+    for scored_item in sorted(scored, key=_ranking_score, reverse=True):
         if scored_item.arxiv_id not in digest_selected_ids:
             continue
         if scored_item.arxiv_id in deep_read_ids or scored_item.arxiv_id in seen_stub_ids:
@@ -1108,6 +1192,22 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Enable weekly mode: run deep reads for top-ranked papers before rendering digest.",
     )
 
+    serve_feedback_parser = subparsers.add_parser(
+        "serve-feedback",
+        help="Run the lightweight HTTP service that records feedback votes.",
+    )
+    serve_feedback_parser.add_argument(
+        "--host",
+        default=None,
+        help="Bind host override (defaults to feedback.bind_host).",
+    )
+    serve_feedback_parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="Bind port override (defaults to feedback.bind_port).",
+    )
+
     subparsers.add_parser("test-config", help="Validate config and print summary")
     subparsers.add_parser("test-fetch", help="Fetch papers only (no LLM calls)")
 
@@ -1159,6 +1259,12 @@ def _stub_note_tags(paper: Paper, scored: ScoredPaper) -> list[str]:
     raw_tags = list(paper.categories)
     raw_tags.append(f"novelty-{scored.novelty_signal}")
     return _dedupe(_sanitize_list(raw_tags))
+
+
+def _ranking_score(scored: ScoredPaper) -> float:
+    if scored.ranking_score is None:
+        return scored.relevance_score
+    return scored.ranking_score
 
 
 def _configure_logging(verbosity: int) -> None:

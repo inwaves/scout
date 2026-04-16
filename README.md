@@ -4,6 +4,8 @@ A personalized, autonomous agent that monitors arXiv and major AI lab publicatio
 
 Scout fetches new papers from arXiv and web sources (Anthropic, OpenAI, Google DeepMind), scores each one against your research profile using Claude, generates summaries for the top matches, and delivers a ranked digest via email, Slack, Discord, or markdown file.
 
+Scout can also collect explicit feedback from digest emails. When enabled, the HTML email includes `Interesting` / `Not Interesting` links that point at a small always-on feedback server. Votes are stored locally and used to personalize future ranking and deep-read selection.
+
 ## How It Works
 
 1. **Fetch** — Pulls new papers from your watched arXiv categories (last 24–28 hours) and optionally scrapes web sources (lab blogs, sitemaps) for recent posts, system cards, and risk reports.
@@ -183,6 +185,7 @@ python -m paper_scout [OPTIONS] COMMAND
 
 Commands:
   run           Run the full pipeline (fetch → score → summarize → deliver)
+  serve-feedback Run the lightweight HTTP service that records digest feedback
   test-config   Validate configuration and print summary
   test-fetch    Fetch papers only, no LLM calls
 
@@ -194,6 +197,23 @@ Run Options:
   --dry-run       Print digest to stdout; skip delivery and state update
   --weekly        Enable weekly mode: run agentic deep reads for top papers
 ```
+
+### Feedback Server
+
+To enable per-paper feedback from digest emails:
+
+1. Configure the `feedback` section in `scout.yml` with:
+   - `enabled: true`
+   - `storage_path`
+   - `public_base_url`
+   - `signing_secret`
+2. Run the feedback service on an always-on machine:
+
+```bash
+python -m paper_scout serve-feedback
+```
+
+3. Run the normal daily digest job as usual. Scout will read the vote history on each run and adjust ranking accordingly.
 
 ## Project Structure
 

@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import time
+from dataclasses import replace
 from typing import Any, Iterator, Sequence, TypeVar, cast
 
 from .config import ProfileConfig, ScoringConfig
@@ -13,6 +14,7 @@ from .models import NoveltySignal, Paper, ScoredPaper, VALID_NOVELTY_SIGNALS
 LOGGER = logging.getLogger(__name__)
 _CODE_BLOCK_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.IGNORECASE | re.DOTALL)
 _ARXIV_VERSION_RE = re.compile(r"v\d+$")
+_SURVEY_PAPER_RE = re.compile(r"\b(survey|review|taxonomy|overview|meta-analysis)\b", re.I)
 T = TypeVar("T")
 
 
@@ -76,6 +78,7 @@ class AnthropicScorer:
         for index, batch in enumerate(batches, start=1):
             prompt = self._build_user_prompt(batch)
             expected_ids = {_normalize_arxiv_id(paper.arxiv_id) for paper in batch}
+            papers_by_id = {_normalize_arxiv_id(paper.arxiv_id): paper for paper in batch}
             self._logger.info(
                 "Scoring batch %d/%d (%d papers) via standard API.",
                 index,
@@ -87,7 +90,11 @@ class AnthropicScorer:
                 text = self._call_messages_api(prompt)
                 parsed = self._parse_scoring_response(text, expected_ids)
                 for scored in parsed:
-                    results[_normalize_arxiv_id(scored.arxiv_id)] = scored
+                    normalized_id = _normalize_arxiv_id(scored.arxiv_id)
+                    results[normalized_id] = _calibrate_scored_paper(
+                        scored,
+                        papers_by_id.get(normalized_id),
+                    )
             except Exception:
                 self._logger.exception("Scoring failed for batch %d; continuing.", index)
 
@@ -96,11 +103,15 @@ class AnthropicScorer:
     def _score_with_batch_api(self, batches: Sequence[list[Paper]]) -> dict[str, ScoredPaper]:
         requests: list[dict[str, Any]] = []
         expected_by_custom_id: dict[str, set[str]] = {}
+        papers_by_custom_id: dict[str, dict[str, Paper]] = {}
 
         for index, batch in enumerate(batches):
             custom_id = f"score-{index}"
             expected_by_custom_id[custom_id] = {
                 _normalize_arxiv_id(paper.arxiv_id) for paper in batch
+            }
+            papers_by_custom_id[custom_id] = {
+                _normalize_arxiv_id(paper.arxiv_id): paper for paper in batch
             }
             requests.append(
                 {
@@ -153,7 +164,11 @@ class AnthropicScorer:
             try:
                 parsed = self._parse_scoring_response(text, expected_ids)
                 for scored in parsed:
-                    results[_normalize_arxiv_id(scored.arxiv_id)] = scored
+                    normalized_id = _normalize_arxiv_id(scored.arxiv_id)
+                    results[normalized_id] = _calibrate_scored_paper(
+                        scored,
+                        papers_by_custom_id.get(custom_id, {}).get(normalized_id),
+                    )
             except Exception:
                 self._logger.exception(
                     "Failed to parse scoring output for batch request %s.", custom_id
@@ -246,10 +261,19 @@ class AnthropicScorer:
         return (
             "You are a precise research relevance scorer for arXiv papers.\n"
             "Given a research profile and a list of papers, score each paper from 1 to 10.\n"
-            "Use the rubric exactly. Be strict and calibrated.\n\n"
+            "Use the rubric exactly. Be strict, skeptical, and calibrated.\n\n"
             f"Research profile name:\n{self.profile.name}\n\n"
             f"Research profile description:\n{self.profile.description}\n\n"
             f"Scoring rubric:\n{self.profile.scoring_rubric}\n\n"
+            "Calibration guidance:\n"
+            "- Score relevance to this researcher, not generic paper quality.\n"
+            "- Separate topic relevance from paper strength. A paper can be in-scope but still only deserve a 6-8.\n"
+            "- 9/10 must be rare. Reserve it for papers that are both highly relevant and unusually strong, novel, or urgent to read.\n"
+            "- 10/10 should be almost never used.\n"
+            "- Surveys, taxonomies, benchmarks, and framework papers should usually score below 9 unless they seem clearly exceptional.\n"
+            "- Do not give a high score just because a paper comes from a famous lab or matches a watchlist topic.\n"
+            "- Unknown groups should not be penalized, but absent strong evidence of exceptional quality you should stay conservative.\n"
+            "- If you are unsure whether something merits a 9, give it a 7 or 8 instead.\n\n"
             "Output format requirements:\n"
             '- Return ONLY valid JSON.\n'
             '- Top-level object must be: {"papers": [...]}.\n'
@@ -369,6 +393,20 @@ def _normalize_arxiv_id(arxiv_id: str) -> str:
     value = value.removesuffix(".pdf").strip().strip("/")
     value = _ARXIV_VERSION_RE.sub("", value)
     return value
+
+
+def _calibrate_scored_paper(scored: ScoredPaper, paper: Paper | None) -> ScoredPaper:
+    adjusted_score = scored.relevance_score
+
+    if paper is not None:
+        title_and_abstract = f"{paper.title}\n{paper.abstract}"
+        if _SURVEY_PAPER_RE.search(title_and_abstract) and adjusted_score > 8.0:
+            adjusted_score = 8.0
+
+    if adjusted_score == scored.relevance_score:
+        return scored
+
+    return replace(scored, relevance_score=adjusted_score)
 
 
 def _extract_message_text(message: Any) -> str:

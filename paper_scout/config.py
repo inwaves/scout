@@ -106,6 +106,18 @@ class KnowledgeBaseConfig:
 
 
 @dataclass(slots=True)
+class FeedbackConfig:
+    enabled: bool = False
+    storage_path: str = "./feedback.sqlite3"
+    public_base_url: str | None = None
+    signing_secret: str | None = None
+    bind_host: str = "127.0.0.1"
+    bind_port: int = 8787
+    max_adjustment: float = 1.5
+    min_feature_votes: int = 2
+
+
+@dataclass(slots=True)
 class DeliveryChannelConfig:
     type: str
     enabled: bool = True
@@ -139,6 +151,7 @@ class PaperScoutConfig:
     watchlist: WatchlistConfig = field(default_factory=WatchlistConfig)
     alerts: AlertConfig = field(default_factory=AlertConfig)
     knowledge_base: KnowledgeBaseConfig = field(default_factory=KnowledgeBaseConfig)
+    feedback: FeedbackConfig = field(default_factory=FeedbackConfig)
     delivery_channels: list[DeliveryChannelConfig] = field(default_factory=list)
     schedule: ScheduleConfig = field(default_factory=ScheduleConfig)
     anthropic_api_key: str | None = None
@@ -191,6 +204,9 @@ def describe_config(config: PaperScoutConfig) -> str:
             f"Watchlist organizations: {len(config.watchlist.organizations)}",
             f"Alerts enabled: {'yes' if config.alerts.enabled else 'no'}",
             f"Knowledge base papers path: {config.knowledge_base.papers_path or 'none'}",
+            f"Feedback enabled: {'yes' if config.feedback.enabled else 'no'}",
+            f"Feedback storage path: {config.feedback.storage_path}",
+            f"Feedback public base URL: {config.feedback.public_base_url or 'none'}",
             f"Delivery channels: {channels}",
             f"State file: {config.state_file}",
             f"Schedule scoring cron: {config.schedule.scoring_cron}",
@@ -256,6 +272,7 @@ def _parse_config(raw: dict[str, Any], path: Path) -> PaperScoutConfig:
     watchlist = _parse_watchlist(raw.get("watchlist", {}))
     alerts = _parse_alerts(raw.get("alerts", {}))
     knowledge_base = _parse_knowledge_base(raw.get("knowledge_base", {}))
+    feedback = _parse_feedback(raw.get("feedback", {}))
     delivery_channels = _parse_delivery(raw.get("delivery", {}))
     schedule = _parse_schedule(raw.get("schedule", {}))
     anthropic_api_key = _optional_str(raw.get("anthropic_api_key")) or os.environ.get(
@@ -272,6 +289,7 @@ def _parse_config(raw: dict[str, Any], path: Path) -> PaperScoutConfig:
         watchlist=watchlist,
         alerts=alerts,
         knowledge_base=knowledge_base,
+        feedback=feedback,
         delivery_channels=delivery_channels,
         schedule=schedule,
         anthropic_api_key=anthropic_api_key,
@@ -605,6 +623,37 @@ def _parse_knowledge_base(section: Any) -> KnowledgeBaseConfig:
             section_dict.get("max_topic_references", defaults.max_topic_references),
             "knowledge_base.max_topic_references",
             min_value=1,
+        ),
+    )
+
+
+def _parse_feedback(section: Any) -> FeedbackConfig:
+    section_dict = _ensure_dict(section, "feedback")
+    defaults = FeedbackConfig()
+
+    return FeedbackConfig(
+        enabled=_as_bool(section_dict.get("enabled", defaults.enabled), "feedback.enabled"),
+        storage_path=_optional_str(section_dict.get("storage_path")) or defaults.storage_path,
+        public_base_url=_optional_str(section_dict.get("public_base_url")),
+        signing_secret=_optional_str(section_dict.get("signing_secret")),
+        bind_host=_optional_str(section_dict.get("bind_host")) or defaults.bind_host,
+        bind_port=_as_int(
+            section_dict.get("bind_port", defaults.bind_port),
+            "feedback.bind_port",
+            min_value=1,
+            max_value=65535,
+        ),
+        max_adjustment=_as_float(
+            section_dict.get("max_adjustment", defaults.max_adjustment),
+            "feedback.max_adjustment",
+            min_value=0.0,
+            max_value=5.0,
+        ),
+        min_feature_votes=_as_int(
+            section_dict.get("min_feature_votes", defaults.min_feature_votes),
+            "feedback.min_feature_votes",
+            min_value=1,
+            max_value=100,
         ),
     )
 

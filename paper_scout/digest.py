@@ -5,6 +5,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound, select_autoescape
 
 from .config import DEFAULT_SUBJECT_TEMPLATE
+from .feedback import FeedbackTokenSigner, build_feedback_links
 from .models import DigestContext, RenderedDigest
 
 
@@ -29,10 +30,32 @@ class DigestRenderer:
         self,
         context: DigestContext,
         subject_template: str | None = None,
+        feedback_base_url: str | None = None,
+        feedback_signer: FeedbackTokenSigner | None = None,
     ) -> RenderedDigest:
         deep_reads = list(context.deep_reads)
         noteworthy_entries = list(context.noteworthy_entries or context.entries)
         selected_count = len(deep_reads) + len(noteworthy_entries)
+        digest_date = context.generated_at.strftime("%Y-%m-%d")
+
+        deep_read_items = [
+            _template_entry_item(
+                entry,
+                digest_date=digest_date,
+                feedback_base_url=feedback_base_url,
+                feedback_signer=feedback_signer,
+            )
+            for entry in deep_reads
+        ]
+        noteworthy_items = [
+            _template_entry_item(
+                entry,
+                digest_date=digest_date,
+                feedback_base_url=feedback_base_url,
+                feedback_signer=feedback_signer,
+            )
+            for entry in noteworthy_entries
+        ]
 
         render_context = {
             "generated_at": context.generated_at,
@@ -43,6 +66,8 @@ class DigestRenderer:
             "entries": noteworthy_entries,
             "deep_reads": deep_reads,
             "noteworthy_entries": noteworthy_entries,
+            "deep_read_items": deep_read_items,
+            "noteworthy_items": noteworthy_items,
             "run_cost_usd": context.run_cost_usd,
             "total_cost_usd": context.total_cost_usd,
         }
@@ -73,3 +98,27 @@ class DigestRenderer:
 def _fmt_score(value: float) -> str:
     formatted = f"{value:.1f}"
     return formatted.rstrip("0").rstrip(".")
+
+
+def _template_entry_item(
+    entry: object,
+    *,
+    digest_date: str,
+    feedback_base_url: str | None,
+    feedback_signer: FeedbackTokenSigner | None,
+) -> dict[str, object]:
+    feedback: dict[str, str] = {}
+    paper = getattr(entry, "paper", None)
+    if (
+        paper is not None
+        and feedback_base_url
+        and feedback_signer is not None
+    ):
+        feedback = build_feedback_links(
+            base_url=feedback_base_url,
+            signer=feedback_signer,
+            paper=paper,
+            scored=entry,
+            digest_date=digest_date,
+        )
+    return {"entry": entry, "feedback": feedback}

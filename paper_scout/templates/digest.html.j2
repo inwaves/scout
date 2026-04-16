@@ -108,7 +108,8 @@
       {% if deep_reads %}
       <h2>🔍 Deep Reads</h2>
 
-      {% for entry in deep_reads %}
+      {% for item in deep_read_items %}
+      {% set entry = item.entry %}
       <div class="paper">
         <h3>{{ loop.index }}. <a href="{{ entry.paper.url }}">{{ entry.paper.title }}</a></h3>
 
@@ -125,6 +126,9 @@
           <strong>Watchlist:</strong> {{ entry.watchlist_match }}
           {% endif %}
         </p>
+        {% if entry.ranking_score is not none and (entry.ranking_score - entry.relevance_score)|abs >= 0.1 %}
+        <p class="dim"><strong>Personal fit:</strong> {{ entry.ranking_score | fmt_score }}/10</p>
+        {% endif %}
 
         <p class="dim"><strong>Authors:</strong> {{ entry.paper.authors | join(", ") }}</p>
         <p class="dim"><strong>Categories:</strong> {{ entry.paper.categories | join(", ") }}</p>
@@ -166,6 +170,12 @@
           <a href="{{ entry.paper.pdf_url }}">📄 PDF</a>
           &nbsp;·&nbsp;
           <a href="{{ entry.paper.url }}">🔗 Abstract</a>
+          {% if item.feedback %}
+          &nbsp;·&nbsp;
+          <a href="{{ item.feedback.upvote_url }}">👍 Interesting</a>
+          &nbsp;·&nbsp;
+          <a href="{{ item.feedback.downvote_url }}">👎 Not Interesting</a>
+          {% endif %}
         </p>
       </div>
       {% endfor %}
@@ -174,7 +184,8 @@
       {% if noteworthy_entries %}
       <h2>Also Noteworthy</h2>
       <ul class="noteworthy-list">
-        {% for entry in noteworthy_entries %}
+        {% for item in noteworthy_items %}
+        {% set entry = item.entry %}
         <li>
           <a href="{{ entry.paper.url }}"><strong>{{ entry.paper.title }}</strong></a>
           — {{ entry.relevance_score | fmt_score }}/10
@@ -184,8 +195,15 @@
           {% if entry.watchlist_match %}
           · Watchlist: {{ entry.watchlist_match }}
           {% endif %}
+          {% if entry.ranking_score is not none and (entry.ranking_score - entry.relevance_score)|abs >= 0.1 %}
+          · Personal fit: {{ entry.ranking_score | fmt_score }}/10
+          {% endif %}
           . {{ entry.summary }}
           (<a href="{{ entry.paper.pdf_url }}">PDF</a>)
+          {% if item.feedback %}
+          · <a href="{{ item.feedback.upvote_url }}">👍 Interesting</a>
+          · <a href="{{ item.feedback.downvote_url }}">👎 Not Interesting</a>
+          {% endif %}
         </li>
         {% endfor %}
       </ul>

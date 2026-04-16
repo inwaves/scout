@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from paper_scout.digest import DigestRenderer
+from paper_scout.feedback import FeedbackTokenSigner
 from paper_scout.models import DigestContext, DigestEntry, Paper
 
 
@@ -103,3 +104,19 @@ class TestDigestRenderer:
         second_pos = result.markdown.find("Second")
         third_pos = result.markdown.find("Third")
         assert first_pos < second_pos < third_pos
+
+    def test_feedback_links_rendered(self) -> None:
+        renderer = DigestRenderer()
+        context = DigestContext(
+            generated_at=datetime(2026, 3, 28, 7, 0, 0, tzinfo=timezone.utc),
+            total_reviewed=100,
+            threshold=7.0,
+            entries=[_make_entry()],
+        )
+        result = renderer.render(
+            context,
+            feedback_base_url="https://scout.tail.example",
+            feedback_signer=FeedbackTokenSigner("test-secret"),
+        )
+        assert "Interesting" in result.markdown
+        assert "Not Interesting" in result.html
