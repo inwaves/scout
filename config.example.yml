@@ -112,13 +112,13 @@ watchlist:
   organizations:
     - name: "Anthropic"
       aliases: ["Anthropic", "anthropic.com"]
-      always_include: true
+      always_include: false
     - name: "OpenAI"
       aliases: ["OpenAI", "openai.com"]
-      always_include: true
+      always_include: false
     - name: "Google DeepMind"
       aliases: ["Google DeepMind", "DeepMind", "Google Brain", "deepmind.com"]
-      always_include: true
+      always_include: false
   authors:
     - "Sam Bowman"
     - "Ethan Perez"

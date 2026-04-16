@@ -12,7 +12,6 @@ from .config import (
     ConfigError,
     DEFAULT_SUBJECT_TEMPLATE,
     PaperScoutConfig,
-    WatchlistConfig,
     describe_config,
     load_config,
 )
@@ -220,7 +219,6 @@ def run_pipeline(
         papers=papers,
         score_by_id=score_by_id,
         watchlist_matches=watchlist_matches,
-        watchlist_config=config.watchlist,
         threshold=config.scoring.threshold,
         max_papers=config.scoring.max_papers,
         knowledge_base=knowledge_base,
@@ -359,7 +357,6 @@ def run_pipeline(
         papers=papers,
         score_by_id=score_by_id,
         watchlist_matches=watchlist_matches,
-        watchlist_config=config.watchlist,
         config=config,
         knowledge_base=knowledge_base,
     )
@@ -722,12 +719,10 @@ def _select_scored_for_digest(
     papers: Sequence[Paper],
     score_by_id: dict[str, ScoredPaper],
     watchlist_matches: dict[str, WatchlistMatch],
-    watchlist_config: WatchlistConfig,
     threshold: float,
     max_papers: int,
     knowledge_base: KnowledgeBase,
 ) -> list[ScoredPaper]:
-    watchlist_items: list[ScoredPaper] = []
     scored_items: list[ScoredPaper] = []
     seen_ids: set[str] = set()
     seen_titles: set[str] = set()
@@ -750,60 +745,24 @@ def _select_scored_for_digest(
             continue
 
         scored_item = score_by_id.get(arxiv_id)
-        watch_match = watchlist_matches.get(arxiv_id)
-
-        include_by_watchlist = (
-            watch_match is not None and _watchlist_always_include(watch_match, watchlist_config)
-        )
         include_by_score = scored_item is not None and _ranking_score(scored_item) >= threshold
 
-        if not include_by_watchlist and not include_by_score:
+        if not include_by_score:
             continue
 
-        if scored_item is None:
-            scored_item = ScoredPaper(
-                arxiv_id=arxiv_id,
-                relevance_score=0.0,
-                rationale=(
-                    f"Included due to watchlist match: {watch_match.matched_name}."
-                    if watch_match
-                    else "Included due to watchlist match."
-                ),
-                novelty_signal="incremental",
-            )
+        scored_items.append(scored_item)
 
-        if include_by_watchlist:
-            watchlist_items.append(scored_item)
-        else:
-            scored_items.append(scored_item)
-
-    all_items = watchlist_items + scored_items
-    all_items.sort(key=_ranking_score, reverse=True)
+    scored_items.sort(key=_ranking_score, reverse=True)
 
     ordered: list[ScoredPaper] = []
     seen: set[str] = set()
-    for item in all_items:
+    for item in scored_items:
         if item.arxiv_id in seen:
             continue
         seen.add(item.arxiv_id)
         ordered.append(item)
 
-    if len(watchlist_items) >= max_papers:
-        return ordered
     return ordered[:max_papers]
-
-
-def _watchlist_always_include(match: WatchlistMatch, config: WatchlistConfig) -> bool:
-    if match.match_type == "author":
-        return True
-    if match.match_type != "organization":
-        return False
-
-    normalized = match.matched_name.strip().lower()
-    for org in config.organizations:
-        if org.name.strip().lower() == normalized:
-            return org.always_include
-    return True
 
 
 def _fallback_deep_entry(
@@ -913,7 +872,6 @@ def _collect_hot_alerts(
     papers: Sequence[Paper],
     score_by_id: dict[str, ScoredPaper],
     watchlist_matches: dict[str, WatchlistMatch],
-    watchlist_config: WatchlistConfig,
     config: PaperScoutConfig,
     knowledge_base: KnowledgeBase,
 ) -> list[HotAlert]:
@@ -931,19 +889,12 @@ def _collect_hot_alerts(
         score = _ranking_score(scored) if scored else 0.0
 
         reason: str | None = None
-        if watch_match and watch_match.match_type == "author":
-            reason = f"Watchlist author match: {watch_match.matched_name}"
-        elif score >= config.alerts.score_threshold:
+        if score >= config.alerts.score_threshold:
             label = "High personalized score" if scored and scored.ranking_score is not None else "High relevance score"
             reason = f"{label}: {score:.1f}/10"
-        elif (
-            watch_match
-            and watch_match.match_type == "organization"
-            and _watchlist_always_include(watch_match, watchlist_config)
-            and score >= config.alerts.watchlist_score_threshold
-        ):
+        elif watch_match and score >= config.alerts.watchlist_score_threshold:
             reason = (
-                f"Watchlist organization match: {watch_match.matched_name} "
+                f"Watchlist match: {watch_match.matched_name} "
                 f"with score {score:.1f}/10"
             )
 
