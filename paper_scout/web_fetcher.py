@@ -346,7 +346,7 @@ class WebFetcher:
                     lastmod = _parse_datetime(text)
 
             if loc:
-                entries.append((_canonicalize_url(loc), lastmod))
+                entries.append((loc, lastmod))
 
         return root_kind, entries
 
