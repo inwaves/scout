@@ -73,6 +73,7 @@ jobs:
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           SCOUT_SEND_TO: ${{ secrets.SCOUT_SEND_TO }}
+          SCOUT_FEEDBACK_SIGNING_SECRET: ${{ secrets.SCOUT_FEEDBACK_SIGNING_SECRET }}
         run: |
           MODE="${{ steps.mode.outputs.mode }}"
           case "$MODE" in
