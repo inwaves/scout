@@ -373,10 +373,28 @@ class WebFetcher:
                 continue
 
             seen_urls.add(absolute_url)
-            title = _normalize_whitespace(link.get_text(" ", strip=True)) or _title_from_url(
-                absolute_url
-            )
-            description = _extract_link_description(link, title)
+
+            # Alignment index entries use <a class="note"><h3>...</h3>
+            # <div class="description">...</div></a>. Prefer those
+            # structured children; they give a clean title/description
+            # without bleeding neighbouring posts from the parent <div>.
+            title = ""
+            description = ""
+            heading = link.find(["h1", "h2", "h3", "h4"])
+            if heading is not None:
+                title = _normalize_whitespace(heading.get_text(" ", strip=True))
+            description_node = link.find(class_="description")
+            if description_node is not None:
+                description = _normalize_whitespace(
+                    description_node.get_text(" ", strip=True)
+                )
+
+            if not title:
+                title = _normalize_whitespace(link.get_text(" ", strip=True)) or _title_from_url(
+                    absolute_url
+                )
+            if not description:
+                description = _extract_link_description(link, title)
             results.append((absolute_url, title, description))
 
         return results
@@ -419,6 +437,10 @@ class WebFetcher:
 
         pdf_url: str | None = None
         arxiv_id = ""
+        # Only treat arxiv links as the post's own ID when the page itself
+        # is on arxiv. A blog post that cites an arxiv paper is not that
+        # paper — using the citation's ID hijacks the web post's identity.
+        page_on_arxiv = "arxiv.org" in urllib.parse.urlparse(url).netloc.lower()
         for tag in soup.find_all(["a", "link"], href=True):
             href = str(tag.get("href", "")).strip()
             if not href:
@@ -426,7 +448,7 @@ class WebFetcher:
             absolute_href = urllib.parse.urljoin(url, href)
             if not pdf_url and _looks_like_pdf_url(absolute_href):
                 pdf_url = _canonicalize_url(absolute_href)
-            if not arxiv_id:
+            if page_on_arxiv and not arxiv_id:
                 match = _ARXIV_URL_RE.search(absolute_href)
                 if match:
                     arxiv_id = match.group(1)

@@ -201,7 +201,7 @@ class TestFetchPageMetadata:
 
         fetcher._fetch_text = lambda url: html  # type: ignore[method-assign]
         title, description, pdf_url, arxiv_id = fetcher._fetch_page_metadata(
-            "https://example.com/page"
+            "https://arxiv.org/abs/2602.22755"
         )
         assert title == "Real Paper Title"
         assert arxiv_id == "2602.22755"
@@ -214,10 +214,23 @@ class TestFetchPageMetadata:
 
         fetcher._fetch_text = lambda url: html  # type: ignore[method-assign]
         title, description, pdf_url, arxiv_id = fetcher._fetch_page_metadata(
-            "https://example.com/page"
+            "https://arxiv.org/abs/2604.07729"
         )
         assert title == "Good Title"
         assert arxiv_id == "2604.07729"
+
+    def test_ignores_arxiv_citations_on_non_arxiv_pages(self) -> None:
+        fetcher = _build_fetcher(fetch_page_metadata=True)
+
+        html = """<html><head><title>Blog Post</title></head>
+        <body><a href="https://arxiv.org/abs/2211.03540">Cited paper</a></body></html>"""
+
+        fetcher._fetch_text = lambda url: html  # type: ignore[method-assign]
+        title, description, pdf_url, arxiv_id = fetcher._fetch_page_metadata(
+            "https://alignment.anthropic.com/2026/some-post"
+        )
+        assert title == "Blog Post"
+        assert arxiv_id == ""
 
     def test_no_arxiv_link_returns_empty_id(self) -> None:
         fetcher = _build_fetcher(fetch_page_metadata=True)
