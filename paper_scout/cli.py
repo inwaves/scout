@@ -853,7 +853,7 @@ def _scored_to_kb_record(
         authors=list(paper.authors),
         date_read=timestamp.date().isoformat(),
         score=scored.relevance_score,
-        topics=_stub_note_tags(paper, scored) or _fallback_topics(paper),
+        topics=_stub_note_tags(paper) or _fallback_topics(paper),
         key_findings=key_findings,
         builds_on=[],
         tldr=summary,
@@ -1083,7 +1083,7 @@ def _generate_kb_notes(
         kb_note_writer.write_stub_note(
             paper=paper,
             scored=scored_item,
-            tags=_stub_note_tags(paper, scored_item),
+            tags=_stub_note_tags(paper),
         )
         knowledge_base.add_paper(
             _scored_to_kb_record(
@@ -1206,9 +1206,8 @@ def _deep_entry_to_result(entry: DeepReadEntry) -> DeepReadResult:
     )
 
 
-def _stub_note_tags(paper: Paper, scored: ScoredPaper) -> list[str]:
+def _stub_note_tags(paper: Paper) -> list[str]:
     raw_tags = list(paper.categories)
-    raw_tags.append(f"novelty-{scored.novelty_signal}")
     return _dedupe(_sanitize_list(raw_tags))
 
 
