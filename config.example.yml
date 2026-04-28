@@ -81,6 +81,8 @@ web_sources:
       enabled: true
     - type: "deepmind"
       enabled: true
+    - type: "aisi"
+      enabled: true
   request_timeout_seconds: 30.0
   max_retries: 3
   retry_backoff_seconds: 5.0
@@ -123,6 +125,9 @@ watchlist:
       always_include: false
     - name: "Google DeepMind"
       aliases: ["Google DeepMind", "DeepMind", "Google Brain", "deepmind.com"]
+      always_include: false
+    - name: "AI Security Institute"
+      aliases: ["AI Security Institute", "AISI", "aisi.gov.uk", "UK AISI"]
       always_include: false
   authors:
     - "Sam Bowman"

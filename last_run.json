@@ -1,4 +1,70 @@
 {
-  "last_successful_run": "2026-04-28T09:12:54.856663+00:00",
-  "cumulative_cost_usd": 36.43747799999999
+  "last_successful_run": "2026-04-28T14:57:56.411990+00:00",
+  "cumulative_cost_usd": 36.685334999999995,
+  "seen_web_posts": {
+    "aisi:what-can-sandboxed-ai-agents-learn-about-their-evaluation-environments": {
+      "first_seen": "2026-04-28T14:57:56.411990+00:00",
+      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "url": "https://www.aisi.gov.uk/blog/what-can-sandboxed-ai-agents-learn-about-their-evaluation-environments",
+      "title": "What can sandboxed AI agents learn about their evaluation environments? | AISI Work",
+      "source_label": "AISI",
+      "published": "2026-04-20T00:00:00+00:00"
+    },
+    "aisi:infusion-shaping-model-behaviour-by-editing-training-data-via-influence-functions": {
+      "first_seen": "2026-04-28T14:57:56.411990+00:00",
+      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "url": "https://www.aisi.gov.uk/research/infusion-shaping-model-behaviour-by-editing-training-data-via-influence-functions",
+      "title": "Infusion: Shaping model behaviour by editing training data via influence functions",
+      "source_label": "AISI",
+      "published": "2026-04-10T00:00:00+00:00"
+    },
+    "aisi:how-are-ai-agents-used-evidence-from-177-000-mcp-tools": {
+      "first_seen": "2026-04-28T14:57:56.411990+00:00",
+      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "url": "https://www.aisi.gov.uk/research/how-are-ai-agents-used-evidence-from-177-000-mcp-tools",
+      "title": "How are AI agents used? Evidence from 177,000 MCP tools",
+      "source_label": "AISI",
+      "published": "2026-03-26T00:00:00+00:00"
+    },
+    "aisi:quantifying-frontier-llm-capabilities-for-container-sandbox-escape": {
+      "first_seen": "2026-04-28T14:57:56.411990+00:00",
+      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "url": "https://www.aisi.gov.uk/research/quantifying-frontier-llm-capabilities-for-container-sandbox-escape",
+      "title": "Quantifying Frontier LLM Capabilities for Container Sandbox Escape",
+      "source_label": "AISI",
+      "published": "2026-03-23T00:00:00+00:00"
+    },
+    "aisi:measuring-ai-agents-progress-on-multi-step-cyber-attack-scenarios": {
+      "first_seen": "2026-04-28T14:57:56.411990+00:00",
+      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "url": "https://www.aisi.gov.uk/research/measuring-ai-agents-progress-on-multi-step-cyber-attack-scenarios",
+      "title": "Measuring AI Agents\u2019 Progress on Multi-Step Cyber Attack Scenarios",
+      "source_label": "AISI",
+      "published": "2026-03-16T00:00:00+00:00"
+    },
+    "aisi:a-multi-turn-framework-for-evaluating-ai-misuse-in-fraud-and-cybercrime-scenarios": {
+      "first_seen": "2026-04-28T14:57:56.411990+00:00",
+      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "url": "https://www.aisi.gov.uk/research/a-multi-turn-framework-for-evaluating-ai-misuse-in-fraud-and-cybercrime-scenarios",
+      "title": "A multi-turn framework for evaluating AI misuse in fraud and cybercrime scenarios",
+      "source_label": "AISI",
+      "published": "2026-02-26T00:00:00+00:00"
+    },
+    "aisi:seven-simple-steps-for-log-analysis-in-ai-systems": {
+      "first_seen": "2026-04-28T14:57:56.411990+00:00",
+      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "url": "https://www.aisi.gov.uk/research/seven-simple-steps-for-log-analysis-in-ai-systems",
+      "title": "Seven simple steps for log analysis in AI systems",
+      "source_label": "AISI",
+      "published": "2026-02-25T00:00:00+00:00"
+    },
+    "aisi:boundary-point-jailbreaking-of-black-box-llms": {
+      "first_seen": "2026-04-28T14:57:56.411990+00:00",
+      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "url": "https://www.aisi.gov.uk/research/boundary-point-jailbreaking-of-black-box-llms",
+      "title": "Boundary Point Jailbreaking of Black-Box LLMs",
+      "source_label": "AISI",
+      "published": "2026-02-17T00:00:00+00:00"
+    }
+  }
 }

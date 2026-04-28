@@ -99,6 +99,16 @@ BUILTIN_SOURCES: dict[str, WebSourceDef] = {
         id_prefix="deepmind",
         source_label="Google DeepMind",
     ),
+    "aisi": WebSourceDef(
+        name="AI Security Institute Research",
+        source_type="sitemap",
+        base_url="https://www.aisi.gov.uk",
+        index_url="https://www.aisi.gov.uk/sitemap.xml",
+        path_prefixes=["/research/", "/blog/"],
+        org_name="AI Security Institute",
+        id_prefix="aisi",
+        source_label="AISI",
+    ),
 }
 
 
@@ -720,6 +730,15 @@ def _extract_page_published_at(soup: BeautifulSoup) -> datetime | None:
             if value:
                 candidates.append(value)
 
+    for breadcrumb in soup.find_all(class_=_has_breadcrumb_class):
+        value = _normalize_whitespace(breadcrumb.get_text(" ", strip=True))
+        if value:
+            candidates.append(value)
+        for child in breadcrumb.find_all(True):
+            child_value = _normalize_whitespace(child.get_text(" ", strip=True))
+            if child_value:
+                candidates.append(child_value)
+
     for candidate in candidates:
         parsed = _parse_datetime(candidate)
         if parsed is not None:
@@ -742,6 +761,16 @@ def _extract_page_published_at(soup: BeautifulSoup) -> datetime | None:
                 return parsed
 
     return None
+
+
+def _has_breadcrumb_class(value: object) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return "breadcrumb" in value.split()
+    if isinstance(value, list):
+        return any(_has_breadcrumb_class(item) for item in value)
+    return False
 
 
 def _iter_jsonld_values(payload: object, target_keys: frozenset[str]) -> list[str]:
