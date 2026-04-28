@@ -52,6 +52,8 @@ class WebSourcesConfig:
     query_pause_seconds: float = 1.0
     max_items_per_source: int = 50
     fetch_page_metadata: bool = True
+    max_post_age_days: int | None = 120
+    seen_state_limit: int = 5000
 
 
 @dataclass(slots=True)
@@ -193,6 +195,7 @@ def describe_config(config: PaperScoutConfig) -> str:
             f"Lookback hours: {config.arxiv.lookback_hours}",
             f"Web sources enabled: {'yes' if config.web_sources.enabled else 'no'}",
             f"Web source types: {', '.join(enabled_web_sources) or 'none'}",
+            f"Web max post age days: {config.web_sources.max_post_age_days or 'none'}",
             f"Scoring model: {config.scoring.model}",
             f"LLM batch size: {config.scoring.batch_size}",
             f"Threshold: {config.scoring.threshold}",
@@ -412,6 +415,16 @@ def _parse_web_sources(section: Any) -> WebSourcesConfig:
         fetch_page_metadata=_as_bool(
             section_dict.get("fetch_page_metadata", defaults.fetch_page_metadata),
             "web_sources.fetch_page_metadata",
+        ),
+        max_post_age_days=_as_optional_int(
+            section_dict.get("max_post_age_days", defaults.max_post_age_days),
+            "web_sources.max_post_age_days",
+            min_value=1,
+        ),
+        seen_state_limit=_as_int(
+            section_dict.get("seen_state_limit", defaults.seen_state_limit),
+            "web_sources.seen_state_limit",
+            min_value=100,
         ),
     )
 
@@ -804,6 +817,20 @@ def _as_int(
     if max_value is not None and parsed > max_value:
         raise ConfigError(f"{field_name} must be <= {max_value}.")
     return parsed
+
+
+def _as_optional_int(
+    value: Any,
+    field_name: str,
+    *,
+    min_value: int | None = None,
+    max_value: int | None = None,
+) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, str) and value.strip().lower() in {"", "none", "null"}:
+        return None
+    return _as_int(value, field_name, min_value=min_value, max_value=max_value)
 
 
 def _as_float(

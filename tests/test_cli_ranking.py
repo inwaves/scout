@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from paper_scout.cli import _collect_hot_alerts, _select_scored_for_digest
+from paper_scout.cli import _collect_hot_alerts, _merge_seen_web_posts, _select_scored_for_digest
 from paper_scout.config import (
     AlertConfig,
     AnalysisConfig,
@@ -116,3 +116,24 @@ def test_watchlist_match_can_trigger_alert_only_with_score_threshold(tmp_path: P
     )
     assert len(high_alerts) == 1
     assert "Watchlist match" in high_alerts[0].reason
+
+
+def test_merge_seen_web_posts_records_observed_posts() -> None:
+    paper = _make_paper(
+        arxiv_id="openai:test-post",
+        title="Test Post",
+    )
+    paper.source_label = "OpenAI"
+    paper.url = "https://openai.com/index/test-post"
+    paper.pdf_url = paper.url
+
+    seen = _merge_seen_web_posts(
+        existing={},
+        observed=[paper],
+        timestamp=datetime(2026, 4, 28, 9, 0, 0, tzinfo=timezone.utc),
+        limit=5000,
+    )
+
+    assert seen["openai:test-post"]["url"] == "https://openai.com/index/test-post"
+    assert seen["openai:test-post"]["source_label"] == "OpenAI"
+    assert seen["openai:test-post"]["first_seen"] == "2026-04-28T09:00:00+00:00"

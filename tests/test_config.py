@@ -107,6 +107,8 @@ class TestLoadConfig:
         assert config.scoring.threshold == 7.0
         assert config.web_sources.enabled is False
         assert config.web_sources.sources == []
+        assert config.web_sources.max_post_age_days == 120
+        assert config.web_sources.seen_state_limit == 5000
         assert len(config.delivery_channels) == 1
         assert config.delivery_channels[0].type == "markdown"
 
@@ -124,6 +126,8 @@ class TestLoadConfig:
                 - type: "deepmind"
                   enabled: false
               max_items_per_source: 25
+              max_post_age_days: 90
+              seen_state_limit: 250
         """)
         path = tmp_path / "scout.yml"
         path.write_text(content, encoding="utf-8")
@@ -134,6 +138,8 @@ class TestLoadConfig:
         assert config.web_sources.sources[0].enabled is True
         assert config.web_sources.sources[1].enabled is False
         assert config.web_sources.max_items_per_source == 25
+        assert config.web_sources.max_post_age_days == 90
+        assert config.web_sources.seen_state_limit == 250
 
     def test_load_full_config(self, full_config_file: Path) -> None:
         config = load_config(full_config_file)
@@ -185,6 +191,7 @@ class TestLoadConfig:
         assert config.scoring.use_batch_api is True
         assert config.feedback.enabled is False
         assert config.state_file == "last_run.json"
+        assert config.web_sources.max_post_age_days == 120
 
 
 class TestEnvVarSubstitution:

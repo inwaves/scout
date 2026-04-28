@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -44,10 +45,43 @@ def load_cumulative_cost(state_path: str | Path) -> float:
     return max(0.0, parsed)
 
 
+def load_seen_web_posts(state_path: str | Path) -> dict[str, dict[str, str]]:
+    path = Path(state_path).expanduser()
+    payload = _load_state_payload(path)
+    if payload is None:
+        return {}
+
+    raw = payload.get("seen_web_posts", {})
+    if isinstance(raw, list):
+        return {
+            item.strip(): {}
+            for item in raw
+            if isinstance(item, str) and item.strip()
+        }
+    if not isinstance(raw, dict):
+        return {}
+
+    seen: dict[str, dict[str, str]] = {}
+    for raw_id, raw_record in raw.items():
+        post_id = str(raw_id).strip()
+        if not post_id:
+            continue
+        if isinstance(raw_record, dict):
+            seen[post_id] = {
+                str(key): str(value)
+                for key, value in raw_record.items()
+                if value is not None
+            }
+        else:
+            seen[post_id] = {}
+    return seen
+
+
 def save_last_run(
     state_path: str | Path,
     timestamp: datetime,
     cumulative_cost_usd: float = 0.0,
+    seen_web_posts: Mapping[str, Mapping[str, str]] | None = None,
 ) -> None:
     path = Path(state_path).expanduser()
     timestamp_utc = timestamp.astimezone(timezone.utc) if timestamp.tzinfo else timestamp.replace(
@@ -58,10 +92,23 @@ def save_last_run(
     except (TypeError, ValueError):
         cumulative_cost = 0.0
 
-    payload: dict[str, Any] = {
-        "last_successful_run": timestamp_utc.isoformat(),
-        "cumulative_cost_usd": cumulative_cost,
-    }
+    try:
+        payload: dict[str, Any] = _load_state_payload(path) or {}
+    except StateError:
+        payload = {}
+
+    payload["last_successful_run"] = timestamp_utc.isoformat()
+    payload["cumulative_cost_usd"] = cumulative_cost
+    if seen_web_posts is not None:
+        payload["seen_web_posts"] = {
+            str(post_id): {
+                str(key): str(value)
+                for key, value in record.items()
+                if value is not None
+            }
+            for post_id, record in seen_web_posts.items()
+            if str(post_id).strip()
+        }
 
     try:
         path.parent.mkdir(parents=True, exist_ok=True)

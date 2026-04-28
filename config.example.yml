@@ -87,6 +87,11 @@ web_sources:
   query_pause_seconds: 1.0
   max_items_per_source: 50
   fetch_page_metadata: true
+  # Drop stale web pages even if a sitemap refreshes their <lastmod>.
+  # Set to null to allow unrestricted backfill.
+  max_post_age_days: 120
+  # Durable one-shot ledger for web posts that were already observed.
+  seen_state_limit: 5000
 
 scoring:
   model: "claude-sonnet-4-6"

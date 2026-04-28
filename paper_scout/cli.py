@@ -46,6 +46,7 @@ from .state import (
     determine_since,
     load_cumulative_cost,
     load_last_run,
+    load_seen_web_posts,
     save_last_run,
 )
 from .kb_writer import KBNoteWriter
@@ -89,17 +90,21 @@ def run_pipeline(
     started_at = datetime.now(timezone.utc)
     cost_tracker = CostTracker()
     prior_total_cost_usd = 0.0
+    seen_web_posts: dict[str, dict[str, str]] = {}
+    observed_web_posts: list[Paper] = []
 
     try:
         last_run = load_last_run(config.state_file)
         prior_total_cost_usd = load_cumulative_cost(config.state_file)
+        seen_web_posts = load_seen_web_posts(config.state_file)
     except StateError as exc:
         LOGGER.warning(
-            "Failed to load state file (%s). Falling back to lookback_hours and zero cumulative cost.",
+            "Failed to load state file (%s). Falling back to lookback_hours, zero cumulative cost, and empty web seen state.",
             exc,
         )
         last_run = None
         prior_total_cost_usd = 0.0
+        seen_web_posts = {}
 
     since = determine_since(last_run, config.arxiv.lookback_hours, now=started_at)
     LOGGER.info("Fetching papers since %s", since.isoformat())
@@ -120,8 +125,20 @@ def run_pipeline(
         try:
             web_papers = web_fetcher.fetch_new_posts(since)
             LOGGER.info("Web sources: fetched %d posts.", len(web_papers))
+            seen_web_ids = set(seen_web_posts)
+            new_web_papers = [
+                web_paper for web_paper in web_papers if web_paper.arxiv_id not in seen_web_ids
+            ]
+            skipped_seen_count = len(web_papers) - len(new_web_papers)
+            if skipped_seen_count:
+                LOGGER.info(
+                    "Web sources: skipped %d post(s) already exhausted in state.",
+                    skipped_seen_count,
+                )
+            observed_web_posts.extend(new_web_papers)
+
             seen_titles: set[str] = {_normalize_merge_title(p.title) for p in papers}
-            for web_paper in web_papers:
+            for web_paper in new_web_papers:
                 if web_paper.arxiv_id in paper_by_id:
                     continue
                 norm_title = _normalize_merge_title(web_paper.title)
@@ -548,10 +565,17 @@ def run_pipeline(
         return 6
 
     try:
+        updated_seen_web_posts = _merge_seen_web_posts(
+            existing=seen_web_posts,
+            observed=observed_web_posts,
+            timestamp=started_at,
+            limit=config.web_sources.seen_state_limit,
+        )
         save_last_run(
             config.state_file,
             started_at,
             cumulative_cost_usd=total_cost_usd,
+            seen_web_posts=updated_seen_web_posts,
         )
     except StateError as exc:
         LOGGER.error("Digest delivered but failed to update state file: %s", exc)
@@ -1168,6 +1192,57 @@ def _build_parser() -> argparse.ArgumentParser:
 def _normalize_merge_title(title: str) -> str:
     """Lowercase, strip punctuation/whitespace for cross-source title dedup."""
     return re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
+
+
+def _merge_seen_web_posts(
+    *,
+    existing: dict[str, dict[str, str]],
+    observed: Sequence[Paper],
+    timestamp: datetime,
+    limit: int,
+) -> dict[str, dict[str, str]]:
+    if not observed and len(existing) <= limit:
+        return existing
+
+    timestamp_utc = timestamp.astimezone(timezone.utc) if timestamp.tzinfo else timestamp.replace(
+        tzinfo=timezone.utc
+    )
+    timestamp_text = timestamp_utc.isoformat()
+    merged: dict[str, dict[str, str]] = {
+        str(post_id): dict(record)
+        for post_id, record in existing.items()
+        if str(post_id).strip()
+    }
+
+    for paper in observed:
+        post_id = paper.arxiv_id.strip()
+        if not post_id:
+            continue
+        record = dict(merged.get(post_id, {}))
+        record.setdefault("first_seen", timestamp_text)
+        record["last_seen"] = timestamp_text
+        record["url"] = paper.url
+        record["title"] = paper.title
+        if paper.source_label:
+            record["source_label"] = paper.source_label
+        if paper.published:
+            published = (
+                paper.published.astimezone(timezone.utc)
+                if paper.published.tzinfo
+                else paper.published.replace(tzinfo=timezone.utc)
+            )
+            record["published"] = published.isoformat()
+        merged[post_id] = record
+
+    if limit > 0 and len(merged) > limit:
+        ordered = sorted(
+            merged.items(),
+            key=lambda item: item[1].get("last_seen") or item[1].get("first_seen") or "",
+            reverse=True,
+        )
+        merged = dict(ordered[:limit])
+
+    return merged
 
 
 def _compact_text(text: str, *, max_chars: int) -> str:

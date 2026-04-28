@@ -10,6 +10,7 @@ def _build_fetcher(
     source_type: str = "anthropic_news",
     *,
     fetch_page_metadata: bool = False,
+    max_post_age_days: int | None = 120,
 ) -> WebFetcher:
     config = WebSourcesConfig(
         enabled=True,
@@ -17,6 +18,7 @@ def _build_fetcher(
         query_pause_seconds=0.0,
         fetch_page_metadata=fetch_page_metadata,
         max_items_per_source=10,
+        max_post_age_days=max_post_age_days,
     )
     return WebFetcher(config)
 
@@ -244,6 +246,46 @@ class TestFetchPageMetadata:
         )
         assert title == "Blog Post"
         assert arxiv_id == ""
+
+    def test_extracts_published_date_from_meta(self) -> None:
+        fetcher = _build_fetcher(fetch_page_metadata=True)
+
+        html = """<html><head>
+        <title>Blog Post</title>
+        <meta property="article:published_time" content="2025-01-15T12:30:00Z">
+        </head><body></body></html>"""
+
+        fetcher._fetch_text = lambda url: html  # type: ignore[method-assign]
+        title, description, pdf_url, arxiv_id, published = fetcher._fetch_page_metadata_details(
+            "https://openai.com/index/blog-post"
+        )
+        assert title == "Blog Post"
+        assert arxiv_id == ""
+        assert published == datetime(2025, 1, 15, 12, 30, 0, tzinfo=timezone.utc)
+
+
+class TestWebPostAgeGate:
+    def test_page_published_date_can_drop_stale_sitemap_refresh(self) -> None:
+        fetcher = _build_fetcher(
+            "openai",
+            fetch_page_metadata=True,
+            max_post_age_days=120,
+        )
+        source = BUILTIN_SOURCES["openai"]
+        since = datetime(2026, 4, 28, 0, 0, 0, tzinfo=timezone.utc)
+
+        fetcher._collect_sitemap_entries = lambda sitemap_url: [  # type: ignore[method-assign]
+            (
+                "https://openai.com/index/old-post",
+                datetime(2026, 4, 28, 0, 0, 0, tzinfo=timezone.utc),
+            )
+        ]
+        fetcher._fetch_text = lambda url: """<html><head>
+        <title>Old Post</title>
+        <meta property="article:published_time" content="2025-01-15T12:30:00Z">
+        </head><body></body></html>"""  # type: ignore[method-assign]
+
+        assert fetcher._fetch_sitemap_source(source, since) == []
 
 
 class TestBuildPaperArxivOverride:

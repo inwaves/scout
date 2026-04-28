@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
@@ -25,6 +26,20 @@ _SPACE_RE = re.compile(r"\s+")
 _YEAR_PATH_RE = re.compile(r"^/20\d{2}/")
 _ARXIV_URL_RE = re.compile(r"arxiv\.org/(?:abs|pdf)/(\d{4}\.\d{4,5})")
 _PLACEHOLDER_TITLES = frozenset({"untitled", "untitled post", "no title", ""})
+_PUBLISHED_META_ATTRS: tuple[dict[str, str], ...] = (
+    {"property": "article:published_time"},
+    {"property": "og:published_time"},
+    {"name": "article:published_time"},
+    {"name": "date"},
+    {"name": "datePublished"},
+    {"name": "publish_date"},
+    {"name": "publication_date"},
+    {"name": "pubdate"},
+    {"name": "parsely-pub-date"},
+    {"name": "sailthru.date"},
+    {"itemprop": "datePublished"},
+)
+_JSONLD_PUBLISHED_KEYS = frozenset({"datePublished", "dateCreated", "uploadDate"})
 
 
 class WebFetchError(RuntimeError):
@@ -178,8 +193,14 @@ class WebFetcher:
 
             if self.config.fetch_page_metadata:
                 try:
-                    meta_title, meta_description, meta_pdf_url, meta_arxiv_id = (
-                        self._fetch_page_metadata(url)
+                    (
+                        meta_title,
+                        meta_description,
+                        meta_pdf_url,
+                        meta_arxiv_id,
+                        meta_published,
+                    ) = (
+                        self._fetch_page_metadata_details(url)
                     )
                 except Exception as exc:
                     self._logger.debug("Page metadata fetch failed for %s: %s", url, exc)
@@ -188,6 +209,11 @@ class WebFetcher:
                     abstract = meta_description or abstract
                     pdf_url = meta_pdf_url
                     arxiv_id = meta_arxiv_id
+                    published = meta_published or published
+
+            if self._is_too_old(published):
+                self._logger.debug("Skipping stale web post %s (published %s).", url, published)
+                continue
 
             papers.append(
                 self._build_paper(
@@ -241,8 +267,14 @@ class WebFetcher:
 
             if self.config.fetch_page_metadata:
                 try:
-                    meta_title, meta_description, meta_pdf_url, meta_arxiv_id = (
-                        self._fetch_page_metadata(url)
+                    (
+                        meta_title,
+                        meta_description,
+                        meta_pdf_url,
+                        meta_arxiv_id,
+                        meta_published,
+                    ) = (
+                        self._fetch_page_metadata_details(url)
                     )
                 except Exception as exc:
                     self._logger.debug("Page metadata fetch failed for %s: %s", url, exc)
@@ -251,6 +283,11 @@ class WebFetcher:
                     abstract = meta_description or abstract
                     pdf_url = meta_pdf_url
                     arxiv_id = meta_arxiv_id
+                    published = meta_published or published
+
+            if self._is_too_old(published):
+                self._logger.debug("Skipping stale web post %s (published %s).", url, published)
+                continue
 
             papers.append(
                 self._build_paper(
@@ -401,6 +438,14 @@ class WebFetcher:
 
     def _fetch_page_metadata(self, url: str) -> tuple[str, str, str | None, str]:
         """Fetch page metadata. Returns (title, description, pdf_url, arxiv_id)."""
+        title, description, pdf_url, arxiv_id, _published = self._fetch_page_metadata_details(url)
+        return title, description, pdf_url, arxiv_id
+
+    def _fetch_page_metadata_details(
+        self,
+        url: str,
+    ) -> tuple[str, str, str | None, str, datetime | None]:
+        """Fetch page metadata including page-level published timestamp when available."""
         html = self._fetch_text(url)
         soup = BeautifulSoup(html, "html.parser")
 
@@ -434,6 +479,7 @@ class WebFetcher:
                 {"name": "twitter:description"},
             ],
         )
+        published = _extract_page_published_at(soup)
 
         pdf_url: str | None = None
         arxiv_id = ""
@@ -453,7 +499,13 @@ class WebFetcher:
                 if match:
                     arxiv_id = match.group(1)
 
-        return title, description, pdf_url, arxiv_id
+        return title, description, pdf_url, arxiv_id, published
+
+    def _is_too_old(self, published: datetime | None) -> bool:
+        if published is None or self.config.max_post_age_days is None:
+            return False
+        cutoff = datetime.now(timezone.utc) - timedelta(days=self.config.max_post_age_days)
+        return _ensure_utc(published) < cutoff
 
     def _make_paper_id(self, source: WebSourceDef, url: str) -> str:
         parsed = urllib.parse.urlparse(url)
@@ -650,6 +702,62 @@ def _parse_datetime(value: str) -> datetime | None:
         return None
 
     return _ensure_utc(parsed)
+
+
+def _extract_page_published_at(soup: BeautifulSoup) -> datetime | None:
+    candidates: list[str] = []
+
+    for attrs in _PUBLISHED_META_ATTRS:
+        tag = soup.find("meta", attrs=attrs)
+        if tag is not None:
+            content = _normalize_whitespace(str(tag.get("content", "")))
+            if content:
+                candidates.append(content)
+
+    for time_tag in soup.find_all("time"):
+        for attr_name in ("datetime", "dateTime"):
+            value = _normalize_whitespace(str(time_tag.get(attr_name, "")))
+            if value:
+                candidates.append(value)
+
+    for candidate in candidates:
+        parsed = _parse_datetime(candidate)
+        if parsed is not None:
+            return parsed
+
+    for script in soup.find_all("script"):
+        script_type = str(script.get("type", "")).lower()
+        if "ld+json" not in script_type:
+            continue
+        raw_json = (script.string or script.get_text(" ", strip=True) or "").strip()
+        if not raw_json:
+            continue
+        try:
+            payload = json.loads(raw_json)
+        except json.JSONDecodeError:
+            continue
+        for value in _iter_jsonld_values(payload, _JSONLD_PUBLISHED_KEYS):
+            parsed = _parse_datetime(value)
+            if parsed is not None:
+                return parsed
+
+    return None
+
+
+def _iter_jsonld_values(payload: object, target_keys: frozenset[str]) -> list[str]:
+    values: list[str] = []
+
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            if key in target_keys and isinstance(value, (str, int, float)):
+                values.append(str(value))
+            elif isinstance(value, (dict, list)):
+                values.extend(_iter_jsonld_values(value, target_keys))
+    elif isinstance(payload, list):
+        for item in payload:
+            values.extend(_iter_jsonld_values(item, target_keys))
+
+    return values
 
 
 def _path_has_prefix(path: str, prefix: str) -> bool:
