@@ -1,70 +1,406 @@
 {
-  "last_successful_run": "2026-04-28T14:57:56.411990+00:00",
-  "cumulative_cost_usd": 36.685334999999995,
+  "last_successful_run": "2026-04-29T09:03:28.260883+00:00",
+  "cumulative_cost_usd": 38.30501399999999,
   "seen_web_posts": {
+    "openai:sora-is-here": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/sora-is-here",
+      "title": "Sora is here",
+      "source_label": "OpenAI",
+      "published": "2026-04-29T09:05:11.831000+00:00"
+    },
+    "openai:sora-vallee-duhamel": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/sora-vallee-duhamel",
+      "title": "Vall\u00e9e Duhamel & Sora",
+      "source_label": "OpenAI",
+      "published": "2026-04-29T08:52:51.702000+00:00"
+    },
+    "openai:sora-lyndon-barrois": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/sora-lyndon-barrois",
+      "title": "Animator Lyndon Barrois creates new worlds with Sora",
+      "source_label": "OpenAI",
+      "published": "2026-04-29T08:52:46.308000+00:00"
+    },
+    "openai:open-source-codex-orchestration-symphony": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/open-source-codex-orchestration-symphony",
+      "title": "An open-source spec for Codex orchestration: Symphony.",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T20:49:26.069000+00:00"
+    },
+    "anthropic:claude-for-creative-work": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://www.anthropic.com/news/claude-for-creative-work",
+      "title": "Claude for Creative Work",
+      "source_label": "Anthropic",
+      "published": "2026-04-28T17:25:41+00:00"
+    },
+    "anthropic:election-safeguards-update": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://www.anthropic.com/news/election-safeguards-update",
+      "title": "An update on our election safeguards",
+      "source_label": "Anthropic",
+      "published": "2026-04-28T08:59:45+00:00"
+    },
+    "openai:sora": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/sora",
+      "title": "What to know about the Sora discontinuation | OpenAI Help Center",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T08:02:23.331000+00:00"
+    },
+    "openai:simplifying-stabilizing-and-scaling-continuous-time-consistency-models": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/simplifying-stabilizing-and-scaling-continuous-time-consistency-models",
+      "title": "Simplifying, stabilizing, and scaling continuous-time consistency models",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T08:01:50.151000+00:00"
+    },
+    "openai:hello-gpt-4o": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/hello-gpt-4o",
+      "title": "Hello GPT-4o",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T08:01:49.097000+00:00"
+    },
+    "openai:sharing-the-latest-model-spec": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/sharing-the-latest-model-spec",
+      "title": "Sharing the latest Model Spec",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T08:01:38.242000+00:00"
+    },
+    "openai:openai-and-los-alamos-national-laboratory-work-together": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/openai-and-los-alamos-national-laboratory-work-together",
+      "title": "OpenAI and Los Alamos National Laboratory announce bioscience research partnership",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T08:01:35.883000+00:00"
+    },
+    "openai:creating-with-sora-safely": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/creating-with-sora-safely",
+      "title": "Creating with Sora safely",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T00:00:00+00:00"
+    },
+    "openai:launching-sora-responsibly": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/launching-sora-responsibly",
+      "title": "Launching Sora responsibly",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T00:00:00+00:00"
+    },
+    "openai:sora-feed-philosophy": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/sora-feed-philosophy",
+      "title": "The Sora feed philosophy",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T00:00:00+00:00"
+    },
+    "openai:gpt-5-5-system-card": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/gpt-5-5-system-card",
+      "title": "GPT-5.5 System Card",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T00:00:00+00:00"
+    },
+    "openai:chatgpt-for-teachers": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/chatgpt-for-teachers",
+      "title": "A free version of ChatGPT built for teachers",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T00:00:00+00:00"
+    },
+    "openai:chatgpt-for-excel": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/chatgpt-for-excel",
+      "title": "Introducing ChatGPT for Excel and new financial data integrations",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T00:00:00+00:00"
+    },
+    "openai:introducing-gpt-5-4": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/introducing-gpt-5-4",
+      "title": "Introducing GPT-5.4",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T00:00:00+00:00"
+    },
+    "aisi:ask-dont-tell-reducing-sycophancy-in-large-language-models": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://www.aisi.gov.uk/research/ask-dont-tell-reducing-sycophancy-in-large-language-models",
+      "title": "Ask don't tell: Reducing sycophancy in large language models",
+      "source_label": "AISI",
+      "published": "2026-04-28T00:00:00+00:00"
+    },
+    "anthropic:theo-hourmouzis-general-manager-australia-new-zealand": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://www.anthropic.com/news/theo-hourmouzis-general-manager-australia-new-zealand",
+      "title": "Anthropic Sydney office",
+      "source_label": "Anthropic",
+      "published": "2026-04-27T22:30:22+00:00"
+    },
+    "openai:our-principles": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/our-principles",
+      "title": "Our principles",
+      "source_label": "OpenAI",
+      "published": "2026-04-27T06:00:00+00:00"
+    },
+    "aisi:evaluating-whether-ai-models-would-sabotage-ai-safety-research": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://www.aisi.gov.uk/research/evaluating-whether-ai-models-would-sabotage-ai-safety-research",
+      "title": "Evaluating whether AI models would sabotage AI safety research",
+      "source_label": "AISI",
+      "published": "2026-04-27T00:00:00+00:00"
+    },
+    "openai:next-phase-of-microsoft-partnership": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/next-phase-of-microsoft-partnership",
+      "title": "The next phase of the Microsoft OpenAI partnership",
+      "source_label": "OpenAI",
+      "published": "2026-04-26T16:00:00+00:00"
+    },
+    "aisi:propensity-inference-environmental-contributors-to-llm-behaviour": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://www.aisi.gov.uk/research/propensity-inference-environmental-contributors-to-llm-behaviour",
+      "title": "Propensity Inference: Environmental Contributors to LLM Behaviour",
+      "source_label": "AISI",
+      "published": "2026-04-24T00:00:00+00:00"
+    },
+    "openai:openai-on-aws": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/openai-on-aws",
+      "title": "OpenAI models, Codex, and Managed Agents come to AWS",
+      "source_label": "OpenAI",
+      "published": "2026-04-23T11:00:00+00:00"
+    },
+    "openai:our-commitment-to-community-safety": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/our-commitment-to-community-safety",
+      "title": "Our commitment to community safety",
+      "source_label": "OpenAI",
+      "published": "2026-04-23T11:00:00+00:00"
+    },
+    "openai:accelerating-science-gpt-5": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/accelerating-science-gpt-5",
+      "title": "Early experiments in accelerating science with GPT-5",
+      "source_label": "OpenAI",
+      "published": "2026-04-23T11:00:00+00:00"
+    },
+    "openai:index": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/research/index",
+      "title": "OpenAI Research",
+      "source_label": "OpenAI",
+      "published": "2026-04-23T11:00:00+00:00"
+    },
+    "openai:openai-available-at-fedramp-moderate": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://openai.com/index/openai-available-at-fedramp-moderate",
+      "title": "OpenAI available at FedRAMP Moderate",
+      "source_label": "OpenAI",
+      "published": "2026-04-20T00:00:00+00:00"
+    },
     "aisi:what-can-sandboxed-ai-agents-learn-about-their-evaluation-environments": {
-      "first_seen": "2026-04-28T14:57:56.411990+00:00",
-      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
       "url": "https://www.aisi.gov.uk/blog/what-can-sandboxed-ai-agents-learn-about-their-evaluation-environments",
       "title": "What can sandboxed AI agents learn about their evaluation environments? | AISI Work",
       "source_label": "AISI",
       "published": "2026-04-20T00:00:00+00:00"
     },
     "aisi:infusion-shaping-model-behaviour-by-editing-training-data-via-influence-functions": {
-      "first_seen": "2026-04-28T14:57:56.411990+00:00",
-      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
       "url": "https://www.aisi.gov.uk/research/infusion-shaping-model-behaviour-by-editing-training-data-via-influence-functions",
       "title": "Infusion: Shaping model behaviour by editing training data via influence functions",
       "source_label": "AISI",
       "published": "2026-04-10T00:00:00+00:00"
     },
     "aisi:how-are-ai-agents-used-evidence-from-177-000-mcp-tools": {
-      "first_seen": "2026-04-28T14:57:56.411990+00:00",
-      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
       "url": "https://www.aisi.gov.uk/research/how-are-ai-agents-used-evidence-from-177-000-mcp-tools",
       "title": "How are AI agents used? Evidence from 177,000 MCP tools",
       "source_label": "AISI",
       "published": "2026-03-26T00:00:00+00:00"
     },
     "aisi:quantifying-frontier-llm-capabilities-for-container-sandbox-escape": {
-      "first_seen": "2026-04-28T14:57:56.411990+00:00",
-      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
       "url": "https://www.aisi.gov.uk/research/quantifying-frontier-llm-capabilities-for-container-sandbox-escape",
       "title": "Quantifying Frontier LLM Capabilities for Container Sandbox Escape",
       "source_label": "AISI",
       "published": "2026-03-23T00:00:00+00:00"
     },
     "aisi:measuring-ai-agents-progress-on-multi-step-cyber-attack-scenarios": {
-      "first_seen": "2026-04-28T14:57:56.411990+00:00",
-      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
       "url": "https://www.aisi.gov.uk/research/measuring-ai-agents-progress-on-multi-step-cyber-attack-scenarios",
       "title": "Measuring AI Agents\u2019 Progress on Multi-Step Cyber Attack Scenarios",
       "source_label": "AISI",
       "published": "2026-03-16T00:00:00+00:00"
     },
     "aisi:a-multi-turn-framework-for-evaluating-ai-misuse-in-fraud-and-cybercrime-scenarios": {
-      "first_seen": "2026-04-28T14:57:56.411990+00:00",
-      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
       "url": "https://www.aisi.gov.uk/research/a-multi-turn-framework-for-evaluating-ai-misuse-in-fraud-and-cybercrime-scenarios",
       "title": "A multi-turn framework for evaluating AI misuse in fraud and cybercrime scenarios",
       "source_label": "AISI",
       "published": "2026-02-26T00:00:00+00:00"
     },
     "aisi:seven-simple-steps-for-log-analysis-in-ai-systems": {
-      "first_seen": "2026-04-28T14:57:56.411990+00:00",
-      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
       "url": "https://www.aisi.gov.uk/research/seven-simple-steps-for-log-analysis-in-ai-systems",
       "title": "Seven simple steps for log analysis in AI systems",
       "source_label": "AISI",
       "published": "2026-02-25T00:00:00+00:00"
     },
     "aisi:boundary-point-jailbreaking-of-black-box-llms": {
-      "first_seen": "2026-04-28T14:57:56.411990+00:00",
-      "last_seen": "2026-04-28T14:57:56.411990+00:00",
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
       "url": "https://www.aisi.gov.uk/research/boundary-point-jailbreaking-of-black-box-llms",
       "title": "Boundary Point Jailbreaking of Black-Box LLMs",
       "source_label": "AISI",
       "published": "2026-02-17T00:00:00+00:00"
+    },
+    "anthropic-alignment:2026-backdooring-classifiers": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://alignment.anthropic.com/2026/backdooring-classifiers",
+      "title": "Poisoning Fine-tuning Datasets of Constitutional Classifiers",
+      "source_label": "Anthropic Alignment",
+      "published": "2026-01-01T00:00:00+00:00"
+    },
+    "anthropic-alignment:2026-introspection-adapters": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://alignment.anthropic.com/2026/introspection-adapters",
+      "title": "Introspection Adapters",
+      "source_label": "Anthropic Alignment",
+      "published": "2026-01-01T00:00:00+00:00"
+    },
+    "anthropic-alignment:2026-ai-organizations": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://alignment.anthropic.com/2026/ai-organizations",
+      "title": "AI Organizations Can Be More Effective but Less Aligned than Individual Agents",
+      "source_label": "Anthropic Alignment",
+      "published": "2026-01-01T00:00:00+00:00"
+    },
+    "anthropic-alignment:2026-automated-w2s-researcher": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://alignment.anthropic.com/2026/automated-w2s-researcher",
+      "title": "Automated Weak-to-Strong Researcher",
+      "source_label": "Anthropic Alignment",
+      "published": "2026-01-01T00:00:00+00:00"
+    },
+    "anthropic-alignment:2026-abstractive-red-teaming": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://alignment.anthropic.com/2026/abstractive-red-teaming",
+      "title": "Abstractive Red-Teaming of Language Model Character",
+      "source_label": "Anthropic Alignment",
+      "published": "2026-01-01T00:00:00+00:00"
+    },
+    "anthropic-alignment:2026-coding-audit-realism": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://alignment.anthropic.com/2026/coding-audit-realism",
+      "title": "Measuring and improving coding audit realism with deployment resources",
+      "source_label": "Anthropic Alignment",
+      "published": "2026-01-01T00:00:00+00:00"
+    },
+    "anthropic-alignment:2026-automated-alignment-agent": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://alignment.anthropic.com/2026/automated-alignment-agent",
+      "title": "A3: An Automated Alignment Agent for Safety Finetuning",
+      "source_label": "Anthropic Alignment",
+      "published": "2026-01-01T00:00:00+00:00"
+    },
+    "anthropic-alignment:2026-auditbench": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://alignment.anthropic.com/2026/auditbench",
+      "title": "AuditBench",
+      "source_label": "Anthropic Alignment",
+      "published": "2026-01-01T00:00:00+00:00"
+    },
+    "anthropic-alignment:2026-challenges-hopes": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://alignment.anthropic.com/2026/challenges-hopes",
+      "title": "3 Challenges and 2 Hopes for the Safety of Unsupervised Elicitation",
+      "source_label": "Anthropic Alignment",
+      "published": "2026-01-01T00:00:00+00:00"
+    },
+    "anthropic-alignment:2026-psm": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://alignment.anthropic.com/2026/psm",
+      "title": "The Persona Selection Model: Why AI Assistants might Behave like Humans",
+      "source_label": "Anthropic Alignment",
+      "published": "2026-01-01T00:00:00+00:00"
+    },
+    "anthropic-alignment:2026-hot-mess-of-ai": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://alignment.anthropic.com/2026/hot-mess-of-ai",
+      "title": "The Hot Mess of AI: How Does Misalignment Scale with Model Intelligence and Task Complexity?",
+      "source_label": "Anthropic Alignment",
+      "published": "2026-01-01T00:00:00+00:00"
+    },
+    "anthropic-alignment:2026-auditing-overt-saboteur": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://alignment.anthropic.com/2026/auditing-overt-saboteur",
+      "title": "Pre-deployment auditing can catch an overt saboteur",
+      "source_label": "Anthropic Alignment",
+      "published": "2026-01-01T00:00:00+00:00"
+    },
+    "anthropic-alignment:2026-petri-v2": {
+      "first_seen": "2026-04-29T09:03:28.260883+00:00",
+      "last_seen": "2026-04-29T09:03:28.260883+00:00",
+      "url": "https://alignment.anthropic.com/2026/petri-v2",
+      "title": "Petri 2.0: New Scenarios, New Model Comparisons, and Improved Eval-Awareness Mitigations",
+      "source_label": "Anthropic Alignment",
+      "published": "2026-01-01T00:00:00+00:00"
     }
   }
 }
