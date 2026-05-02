@@ -1,6 +1,6 @@
 {
-  "last_successful_run": "2026-04-30T12:21:33.816020+00:00",
-  "cumulative_cost_usd": 39.912749999999996,
+  "last_successful_run": "2026-05-02T08:15:04.603151+00:00",
+  "cumulative_cost_usd": 41.22595199999999,
   "seen_web_posts": {
     "openai:sora-is-here": {
       "first_seen": "2026-04-29T09:03:28.260883+00:00",
@@ -601,6 +601,302 @@
       "title": "Inside Praktika's conversational approach to language learning",
       "source_label": "OpenAI",
       "published": "2026-04-01T02:00:00+00:00"
+    },
+    "openai:o1-genetics": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/o1-genetics",
+      "title": "Decoding genetics with OpenAI o1",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:17:54.445000+00:00"
+    },
+    "openai:the-met-museum": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/the-met-museum",
+      "title": "Awakening Sleeping Beauties at The Met",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:17:54.145000+00:00"
+    },
+    "openai:frontier-builders": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/frontier-builders",
+      "title": "Frontier Builders | OpenAI",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:17:39.612000+00:00"
+    },
+    "openai:gpt-5-cursor": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/gpt-5-cursor",
+      "title": "How Cursor uses GPT-5",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:17:39.026000+00:00"
+    },
+    "openai:gpt-5-first-look": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/gpt-5-first-look",
+      "title": "First look at GPT-5",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:17:31.543000+00:00"
+    },
+    "openai:gpt-5-amgen": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/gpt-5-amgen",
+      "title": "Gpt 5 Amgen",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:17:30.822000+00:00"
+    },
+    "openai:gpt-5-creative-writing": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/gpt-5-creative-writing",
+      "title": "Creative writing with GPT-5",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:17:14.191000+00:00"
+    },
+    "openai:o1-quantum-physics": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/o1-quantum-physics",
+      "title": "Answering quantum physics questions with OpenAI o1",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:17:06.171000+00:00"
+    },
+    "openai:gpt-5-coding-design": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/gpt-5-coding-design",
+      "title": "Gpt 5 Coding Design",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:17:05.377000+00:00"
+    },
+    "openai:o1-coding": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/o1-coding",
+      "title": "Coding with OpenAI o1",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:17:01.902000+00:00"
+    },
+    "openai:gpt-5-medical-research": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/gpt-5-medical-research",
+      "title": "Medical research with GPT-5",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:17:00.186000+00:00"
+    },
+    "openai:gpt-4": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/gpt-4",
+      "title": "GPT-4",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:10:37.458000+00:00"
+    },
+    "openai:whisper": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/whisper",
+      "title": "Whisper",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:06:26.785000+00:00"
+    },
+    "openai:chatgpt-can-now-see-hear-and-speak": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/chatgpt-can-now-see-hear-and-speak",
+      "title": "Chatgpt Can Now See Hear And Speak",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:04:19.885000+00:00"
+    },
+    "openai:introducing-openai-japan": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/introducing-openai-japan",
+      "title": "Introducing Openai Japan",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:00:07.260000+00:00"
+    },
+    "openai:introducing-workspace-agents-in-chatgpt": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/introducing-workspace-agents-in-chatgpt",
+      "title": "Introducing Workspace Agents In Chatgpt",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T01:56:50.831000+00:00"
+    },
+    "openai:introducing-the-adoption-news-channel": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/introducing-the-adoption-news-channel",
+      "title": "Introducing The Adoption News Channel",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T01:53:01.520000+00:00"
+    },
+    "openai:introducing-o3-and-o4-mini": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/introducing-o3-and-o4-mini",
+      "title": "Introducing O3 And O4 Mini",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T01:50:26.326000+00:00"
+    },
+    "openai:chatgpt-plus": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/chatgpt-plus",
+      "title": "Chatgpt Plus",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T01:50:01.513000+00:00"
+    },
+    "openai:openai-and-microsoft-extend-partnership": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/openai-and-microsoft-extend-partnership",
+      "title": "Openai And Microsoft Extend Partnership",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T01:49:35.297000+00:00"
+    },
+    "openai:genmab": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/genmab",
+      "title": "Genmab launches \u201cAI Everywhere\u201d",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T01:49:05.003000+00:00"
+    },
+    "openai:introducing-structured-outputs-in-the-api": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/introducing-structured-outputs-in-the-api",
+      "title": "Introducing Structured Outputs in the API",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T01:48:51.522000+00:00"
+    },
+    "openai:the-international-2018-results": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/the-international-2018-results",
+      "title": "The International 2018 Results",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T01:48:47.911000+00:00"
+    },
+    "anthropic:emotion-concepts-function": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://www.anthropic.com/research/emotion-concepts-function",
+      "title": "Emotion concepts and their function in a large language model",
+      "source_label": "Anthropic",
+      "published": "2026-05-01T13:51:54+00:00"
+    },
+    "anthropic:claude-personal-guidance": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://www.anthropic.com/research/claude-personal-guidance",
+      "title": "How people ask Claude for personal guidance",
+      "source_label": "Anthropic",
+      "published": "2026-05-01T00:08:28+00:00"
+    },
+    "anthropic:the-long-term-benefit-trust": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://www.anthropic.com/news/the-long-term-benefit-trust",
+      "title": "The Long-Term Benefit Trust",
+      "source_label": "Anthropic",
+      "published": "2026-04-30T16:44:34+00:00"
+    },
+    "openai:introducing-gpt-5-2": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/introducing-gpt-5-2",
+      "title": "Introducing GPT-5.2",
+      "source_label": "OpenAI",
+      "published": "2026-04-30T00:00:00+00:00"
+    },
+    "openai:chatgpt-study-mode": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/chatgpt-study-mode",
+      "title": "Introducing study mode",
+      "source_label": "OpenAI",
+      "published": "2026-04-30T00:00:00+00:00"
+    },
+    "openai:introducing-gpt-5-for-developers": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/introducing-gpt-5-for-developers",
+      "title": "Introducing GPT\u20115 for developers",
+      "source_label": "OpenAI",
+      "published": "2026-04-30T00:00:00+00:00"
+    },
+    "openai:introducing-the-codex-app": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/introducing-the-codex-app",
+      "title": "Introducing the Codex app",
+      "source_label": "OpenAI",
+      "published": "2026-04-30T00:00:00+00:00"
+    },
+    "openai:gpt-5-1": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/gpt-5-1",
+      "title": "GPT-5.1: A smarter, more conversational ChatGPT",
+      "source_label": "OpenAI",
+      "published": "2026-04-30T00:00:00+00:00"
+    },
+    "openai:introducing-openai-privacy-filter": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/introducing-openai-privacy-filter",
+      "title": "Introducing OpenAI Privacy Filter",
+      "source_label": "OpenAI",
+      "published": "2026-04-30T00:00:00+00:00"
+    },
+    "openai:ai-education-opportunity": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/ai-education-opportunity",
+      "title": "Ensuring AI use in education leads to opportunity",
+      "source_label": "OpenAI",
+      "published": "2026-04-29T15:00:00+00:00"
+    },
+    "openai:advanced-account-security": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/advanced-account-security",
+      "title": "Introducing Advanced Account Security",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T00:00:00+00:00"
+    },
+    "openai:gpt-5-5-bio-bug-bounty": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/gpt-5-5-bio-bug-bounty",
+      "title": "GPT-5.5 Bio Bug Bounty",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T00:00:00+00:00"
+    },
+    "openai:ai-literacy-resources-for-teens-and-parents": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/ai-literacy-resources-for-teens-and-parents",
+      "title": "AI literacy resources for teens and parents",
+      "source_label": "OpenAI",
+      "published": "2026-04-28T00:00:00+00:00"
+    },
+    "openai:the-five-ai-value-models-driving-business-reinvention": {
+      "first_seen": "2026-05-02T08:15:04.603151+00:00",
+      "last_seen": "2026-05-02T08:15:04.603151+00:00",
+      "url": "https://openai.com/index/the-five-ai-value-models-driving-business-reinvention",
+      "title": "The five AI value models driving business reinvention",
+      "source_label": "OpenAI",
+      "published": "2026-03-05T00:00:00+00:00"
     }
   }
 }
