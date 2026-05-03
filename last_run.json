@@ -1,6 +1,6 @@
 {
-  "last_successful_run": "2026-05-02T08:15:04.603151+00:00",
-  "cumulative_cost_usd": 41.22595199999999,
+  "last_successful_run": "2026-05-03T08:28:17.096425+00:00",
+  "cumulative_cost_usd": 41.70366899999999,
   "seen_web_posts": {
     "openai:sora-is-here": {
       "first_seen": "2026-04-29T09:03:28.260883+00:00",
@@ -897,6 +897,14 @@
       "title": "The five AI value models driving business reinvention",
       "source_label": "OpenAI",
       "published": "2026-03-05T00:00:00+00:00"
+    },
+    "openai:ten-tiny-canvases": {
+      "first_seen": "2026-05-03T08:28:17.096425+00:00",
+      "last_seen": "2026-05-03T08:28:17.096425+00:00",
+      "url": "https://openai.com/index/ten-tiny-canvases",
+      "title": "Ten Tiny Canvases",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:16:59.953000+00:00"
     }
   }
 }
