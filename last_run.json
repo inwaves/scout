@@ -1,6 +1,6 @@
 {
-  "last_successful_run": "2026-05-03T08:28:17.096425+00:00",
-  "cumulative_cost_usd": 41.70366899999999,
+  "last_successful_run": "2026-05-04T09:10:15.026569+00:00",
+  "cumulative_cost_usd": 42.04363499999999,
   "seen_web_posts": {
     "openai:sora-is-here": {
       "first_seen": "2026-04-29T09:03:28.260883+00:00",
@@ -905,6 +905,110 @@
       "title": "Ten Tiny Canvases",
       "source_label": "OpenAI",
       "published": "2026-05-02T02:16:59.953000+00:00"
+    },
+    "openai:eneos-materials": {
+      "first_seen": "2026-05-04T09:10:15.026569+00:00",
+      "last_seen": "2026-05-04T09:10:15.026569+00:00",
+      "url": "https://openai.com/index/eneos-materials",
+      "title": "Eneos Materials",
+      "source_label": "OpenAI",
+      "published": "2026-05-04T08:11:43.231000+00:00"
+    },
+    "openai:hygh": {
+      "first_seen": "2026-05-04T09:10:15.026569+00:00",
+      "last_seen": "2026-05-04T09:10:15.026569+00:00",
+      "url": "https://openai.com/index/hygh",
+      "title": "Hygh",
+      "source_label": "OpenAI",
+      "published": "2026-05-04T08:11:42.804000+00:00"
+    },
+    "openai:index-release": {
+      "first_seen": "2026-05-04T09:10:15.026569+00:00",
+      "last_seen": "2026-05-04T09:10:15.026569+00:00",
+      "url": "https://openai.com/research/index/release",
+      "title": "Release",
+      "source_label": "OpenAI",
+      "published": "2026-05-04T07:54:10.430000+00:00"
+    },
+    "openai:index-publication": {
+      "first_seen": "2026-05-04T09:10:15.026569+00:00",
+      "last_seen": "2026-05-04T09:10:15.026569+00:00",
+      "url": "https://openai.com/research/index/publication",
+      "title": "Publication",
+      "source_label": "OpenAI",
+      "published": "2026-05-04T07:47:22.973000+00:00"
+    },
+    "openai:index-conclusion": {
+      "first_seen": "2026-05-04T09:10:15.026569+00:00",
+      "last_seen": "2026-05-04T09:10:15.026569+00:00",
+      "url": "https://openai.com/research/index/conclusion",
+      "title": "Conclusion",
+      "source_label": "OpenAI",
+      "published": "2026-05-04T06:42:15.770000+00:00"
+    },
+    "openai:introducing-prism": {
+      "first_seen": "2026-05-04T09:10:15.026569+00:00",
+      "last_seen": "2026-05-04T09:10:15.026569+00:00",
+      "url": "https://openai.com/index/introducing-prism",
+      "title": "Introducing Prism",
+      "source_label": "OpenAI",
+      "published": "2026-05-04T06:38:54.796000+00:00"
+    },
+    "openai:sora-minne-atairu": {
+      "first_seen": "2026-05-04T09:10:15.026569+00:00",
+      "last_seen": "2026-05-04T09:10:15.026569+00:00",
+      "url": "https://openai.com/index/sora-minne-atairu",
+      "title": "Sora Minne Atairu",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:17:55.319000+00:00"
+    },
+    "openai:deep-research": {
+      "first_seen": "2026-05-04T09:10:15.026569+00:00",
+      "last_seen": "2026-05-04T09:10:15.026569+00:00",
+      "url": "https://openai.com/index/deep-research",
+      "title": "Deep Research",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:17:54.356000+00:00"
+    },
+    "openai:navigating-health-questions": {
+      "first_seen": "2026-05-04T09:10:15.026569+00:00",
+      "last_seen": "2026-05-04T09:10:15.026569+00:00",
+      "url": "https://openai.com/index/navigating-health-questions",
+      "title": "Navigating Health Questions",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:17:30.893000+00:00"
+    },
+    "openai:my-dog-the-math-tutor": {
+      "first_seen": "2026-05-04T09:10:15.026569+00:00",
+      "last_seen": "2026-05-04T09:10:15.026569+00:00",
+      "url": "https://openai.com/index/my-dog-the-math-tutor",
+      "title": "My Dog The Math Tutor",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:17:13.178000+00:00"
+    },
+    "openai:small-business-stories": {
+      "first_seen": "2026-05-04T09:10:15.026569+00:00",
+      "last_seen": "2026-05-04T09:10:15.026569+00:00",
+      "url": "https://openai.com/index/small-business-stories",
+      "title": "Small Business Stories",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:16:24.024000+00:00"
+    },
+    "openai:language-models-are-few-shot-learners": {
+      "first_seen": "2026-05-04T09:10:15.026569+00:00",
+      "last_seen": "2026-05-04T09:10:15.026569+00:00",
+      "url": "https://openai.com/index/language-models-are-few-shot-learners",
+      "title": "Language Models Are Few Shot Learners",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T02:02:31.610000+00:00"
+    },
+    "openai:better-language-models": {
+      "first_seen": "2026-05-04T09:10:15.026569+00:00",
+      "last_seen": "2026-05-04T09:10:15.026569+00:00",
+      "url": "https://openai.com/index/better-language-models",
+      "title": "Better Language Models",
+      "source_label": "OpenAI",
+      "published": "2026-05-02T01:50:22.560000+00:00"
     }
   }
 }
