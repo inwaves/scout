@@ -1,6 +1,6 @@
 {
-  "last_successful_run": "2026-05-04T09:10:15.026569+00:00",
-  "cumulative_cost_usd": 42.04363499999999,
+  "last_successful_run": "2026-05-06T09:14:04.752579+00:00",
+  "cumulative_cost_usd": 43.62950399999999,
   "seen_web_posts": {
     "openai:sora-is-here": {
       "first_seen": "2026-04-29T09:03:28.260883+00:00",
@@ -1009,6 +1009,326 @@
       "title": "Better Language Models",
       "source_label": "OpenAI",
       "published": "2026-05-02T01:50:22.560000+00:00"
+    },
+    "openai:gpt-4o-system-card": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/gpt-4o-system-card",
+      "title": "Gpt 4o System Card",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T09:15:28.803000+00:00"
+    },
+    "openai:gpt-4-research": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/gpt-4-research",
+      "title": "Gpt 4 Research",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T09:05:46.856000+00:00"
+    },
+    "openai:descript": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/descript",
+      "title": "Descript",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T08:56:48.686000+00:00"
+    },
+    "openai:openai-pwc-finance-collaboration": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/openai-pwc-finance-collaboration",
+      "title": "Openai Pwc Finance Collaboration",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T08:55:54.883000+00:00"
+    },
+    "openai:doppel": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/doppel",
+      "title": "Doppel",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T08:53:32.247000+00:00"
+    },
+    "openai:expanding-on-how-voice-engine-works-and-our-safety-research": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/expanding-on-how-voice-engine-works-and-our-safety-research",
+      "title": "Expanding on how Voice Engine works and our safety research",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T08:53:07.826000+00:00"
+    },
+    "openai:datadog": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/datadog",
+      "title": "Datadog",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T08:52:59.654000+00:00"
+    },
+    "openai:introducing-chatgpt-pro": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/introducing-chatgpt-pro",
+      "title": "Introducing ChatGPT Pro",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T08:19:27.674000+00:00"
+    },
+    "openai:instruction-hierarchy-challenge": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/instruction-hierarchy-challenge",
+      "title": "Instruction Hierarchy Challenge",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T08:19:24.780000+00:00"
+    },
+    "openai:how-the-voices-for-chatgpt-were-chosen": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/how-the-voices-for-chatgpt-were-chosen",
+      "title": "How The Voices For Chatgpt Were Chosen",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T08:19:08.460000+00:00"
+    },
+    "openai:introducing-the-model-spec": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/introducing-the-model-spec",
+      "title": "Introducing The Model Spec",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T08:04:11.616000+00:00"
+    },
+    "openai:openai-inbound-sales-assistant": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/openai-inbound-sales-assistant",
+      "title": "Openai Inbound Sales Assistant",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T07:50:22.124000+00:00"
+    },
+    "openai:introducing-upgrades-to-codex": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/introducing-upgrades-to-codex",
+      "title": "Introducing Upgrades To Codex",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T07:49:30.010000+00:00"
+    },
+    "openai:openai-support-model": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/openai-support-model",
+      "title": "Openai Support Model",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T07:46:23.038000+00:00"
+    },
+    "openai:notion": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/notion",
+      "title": "Notion",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T07:46:16.279000+00:00"
+    },
+    "openai:powering-product-discovery-in-chatgpt": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/powering-product-discovery-in-chatgpt",
+      "title": "Powering Product Discovery In Chatgpt",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T07:25:24.613000+00:00"
+    },
+    "openai:stargate-community": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/stargate-community",
+      "title": "Stargate Community",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T07:24:25.839000+00:00"
+    },
+    "openai:strengthening-cyber-resilience": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/strengthening-cyber-resilience",
+      "title": "Strengthening Cyber Resilience",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T07:23:34.086000+00:00"
+    },
+    "openai:dai-nippon-printing": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/dai-nippon-printing",
+      "title": "Dai Nippon Printing",
+      "source_label": "OpenAI",
+      "published": "2026-05-06T07:10:34.212000+00:00"
+    },
+    "anthropic:finance-agents": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://www.anthropic.com/news/finance-agents",
+      "title": "Agents for financial services and insurance",
+      "source_label": "Anthropic",
+      "published": "2026-05-05T17:38:31+00:00"
+    },
+    "openai:gpt-5-safe-completions": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/gpt-5-safe-completions",
+      "title": "From hard refusals to safe-completions: toward output-centric safety training",
+      "source_label": "OpenAI",
+      "published": "2026-05-05T10:00:00+00:00"
+    },
+    "openai:hibob": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/hibob",
+      "title": "HiBob turns 2,500 GPTs into product and team growth",
+      "source_label": "OpenAI",
+      "published": "2026-05-05T10:00:00+00:00"
+    },
+    "openai:how-we-monitor-internal-coding-agents-misalignment": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/how-we-monitor-internal-coding-agents-misalignment",
+      "title": "How we monitor internal coding agents for misalignment",
+      "source_label": "OpenAI",
+      "published": "2026-05-05T10:00:00+00:00"
+    },
+    "openai:indeed-maggie-hulce": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/indeed-maggie-hulce",
+      "title": "How Indeed uses AI to help evolve the job search",
+      "source_label": "OpenAI",
+      "published": "2026-05-05T10:00:00+00:00"
+    },
+    "openai:jetbrains-2025": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/jetbrains-2025",
+      "title": "Inside JetBrains\u2014the company reshaping how the world writes code",
+      "source_label": "OpenAI",
+      "published": "2026-05-05T10:00:00+00:00"
+    },
+    "openai:strengthening-chatgpt-responses-in-sensitive-conversations": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/strengthening-chatgpt-responses-in-sensitive-conversations",
+      "title": "Strengthening ChatGPT\u2019s responses in sensitive conversations",
+      "source_label": "OpenAI",
+      "published": "2026-05-05T10:00:00+00:00"
+    },
+    "openai:teen-safety-policies-gpt-oss-safeguard": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/teen-safety-policies-gpt-oss-safeguard",
+      "title": "Helping developers build safer AI experiences for teens",
+      "source_label": "OpenAI",
+      "published": "2026-05-05T10:00:00+00:00"
+    },
+    "openai:strengthening-safety-with-external-testing": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/strengthening-safety-with-external-testing",
+      "title": "Strengthening our safety ecosystem with external testing",
+      "source_label": "OpenAI",
+      "published": "2026-05-05T10:00:00+00:00"
+    },
+    "openai:stadler": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/stadler",
+      "title": "STADLER reshapes knowledge work at a 230-year-old company",
+      "source_label": "OpenAI",
+      "published": "2026-05-05T10:00:00+00:00"
+    },
+    "openai:gpt-5-5-instant": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/gpt-5-5-instant",
+      "title": "GPT-5.5 Instant: smarter, clearer, and more personalized",
+      "source_label": "OpenAI",
+      "published": "2026-05-05T00:00:00+00:00"
+    },
+    "anthropic:claude-opus-4-7": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://www.anthropic.com/news/claude-opus-4-7",
+      "title": "Introducing Claude Opus 4.7",
+      "source_label": "Anthropic",
+      "published": "2026-05-04T23:23:49+00:00"
+    },
+    "openai:figma-partnership": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/figma-partnership",
+      "title": "OpenAI Codex and Figma launch seamless code-to-design experience",
+      "source_label": "OpenAI",
+      "published": "2026-05-04T21:00:00+00:00"
+    },
+    "openai:how-countries-can-end-the-capability-overhang": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/how-countries-can-end-the-capability-overhang",
+      "title": "How countries can end the capability overhang",
+      "source_label": "OpenAI",
+      "published": "2026-05-04T21:00:00+00:00"
+    },
+    "openai:openai-for-india": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/openai-for-india",
+      "title": "Introducing OpenAI for India",
+      "source_label": "OpenAI",
+      "published": "2026-05-04T21:00:00+00:00"
+    },
+    "anthropic:enterprise-ai-services-company": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://www.anthropic.com/news/enterprise-ai-services-company",
+      "title": "Building a new enterprise AI services company with Blackstone, Hellman & Friedman, and Goldman Sachs",
+      "source_label": "Anthropic",
+      "published": "2026-05-04T15:43:58+00:00"
+    },
+    "openai:harness-engineering": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/harness-engineering",
+      "title": "Harness engineering: leveraging Codex in an agent-first world",
+      "source_label": "OpenAI",
+      "published": "2026-05-04T00:00:00+00:00"
+    },
+    "openai:equip-responses-api-computer-environment": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/equip-responses-api-computer-environment",
+      "title": "From model to agent: Equipping the Responses API with a computer environment",
+      "source_label": "OpenAI",
+      "published": "2026-05-04T00:00:00+00:00"
+    },
+    "openai:inside-our-in-house-data-agent": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/inside-our-in-house-data-agent",
+      "title": "Inside OpenAI\u2019s in-house data agent",
+      "source_label": "OpenAI",
+      "published": "2026-05-04T00:00:00+00:00"
+    },
+    "openai:gartner-2025-emerging-leader": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/gartner-2025-emerging-leader",
+      "title": "OpenAI named Emerging Leader in Generative AI",
+      "source_label": "OpenAI",
+      "published": "2026-04-27T06:00:00+00:00"
+    },
+    "openai:gradient-labs": {
+      "first_seen": "2026-05-06T09:14:04.752579+00:00",
+      "last_seen": "2026-05-06T09:14:04.752579+00:00",
+      "url": "https://openai.com/index/gradient-labs",
+      "title": "Gradient Labs gives every bank customer an AI account manager",
+      "source_label": "OpenAI",
+      "published": "2026-03-06T00:00:00+00:00"
     }
   }
 }
