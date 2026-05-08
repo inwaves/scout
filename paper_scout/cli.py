@@ -12,13 +12,19 @@ from .config import (
     ConfigError,
     DEFAULT_SUBJECT_TEMPLATE,
     PaperScoutConfig,
-    WatchlistConfig,
     describe_config,
     load_config,
 )
 from .deep_reader import DeepReadAgent, DeepReadError
 from .delivery import DeliveryError, build_delivery_channels
 from .digest import DigestRenderer
+from .feedback import (
+    FeedbackError,
+    FeedbackStore,
+    FeedbackTokenSigner,
+    load_preference_model,
+    run_feedback_server,
+)
 from .fetcher import ArxivFetcher
 from .knowledge_base import KnowledgeBase, KnowledgeBaseError
 from .models import (
@@ -40,6 +46,7 @@ from .state import (
     determine_since,
     load_cumulative_cost,
     load_last_run,
+    load_seen_web_posts,
     save_last_run,
 )
 from .kb_writer import KBNoteWriter
@@ -64,6 +71,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "run":
         return _cmd_run(args)
+    if args.command == "serve-feedback":
+        return _cmd_serve_feedback(args)
     if args.command == "test-config":
         return _cmd_test_config(args)
     if args.command == "test-fetch":
@@ -81,17 +90,21 @@ def run_pipeline(
     started_at = datetime.now(timezone.utc)
     cost_tracker = CostTracker()
     prior_total_cost_usd = 0.0
+    seen_web_posts: dict[str, dict[str, str]] = {}
+    observed_web_posts: list[Paper] = []
 
     try:
         last_run = load_last_run(config.state_file)
         prior_total_cost_usd = load_cumulative_cost(config.state_file)
+        seen_web_posts = load_seen_web_posts(config.state_file)
     except StateError as exc:
         LOGGER.warning(
-            "Failed to load state file (%s). Falling back to lookback_hours and zero cumulative cost.",
+            "Failed to load state file (%s). Falling back to lookback_hours, zero cumulative cost, and empty web seen state.",
             exc,
         )
         last_run = None
         prior_total_cost_usd = 0.0
+        seen_web_posts = {}
 
     since = determine_since(last_run, config.arxiv.lookback_hours, now=started_at)
     LOGGER.info("Fetching papers since %s", since.isoformat())
@@ -112,8 +125,20 @@ def run_pipeline(
         try:
             web_papers = web_fetcher.fetch_new_posts(since)
             LOGGER.info("Web sources: fetched %d posts.", len(web_papers))
+            seen_web_ids = set(seen_web_posts)
+            new_web_papers = [
+                web_paper for web_paper in web_papers if web_paper.arxiv_id not in seen_web_ids
+            ]
+            skipped_seen_count = len(web_papers) - len(new_web_papers)
+            if skipped_seen_count:
+                LOGGER.info(
+                    "Web sources: skipped %d post(s) already exhausted in state.",
+                    skipped_seen_count,
+                )
+            observed_web_posts.extend(new_web_papers)
+
             seen_titles: set[str] = {_normalize_merge_title(p.title) for p in papers}
-            for web_paper in web_papers:
+            for web_paper in new_web_papers:
                 if web_paper.arxiv_id in paper_by_id:
                     continue
                 norm_title = _normalize_merge_title(web_paper.title)
@@ -154,6 +179,40 @@ def run_pipeline(
     else:
         LOGGER.info("No new papers found for this run window.")
 
+    feedback_store: FeedbackStore | None = None
+    feedback_signer: FeedbackTokenSigner | None = None
+    feedback_base_url: str | None = None
+
+    if config.feedback.enabled:
+        try:
+            feedback_store = FeedbackStore(config.feedback.storage_path)
+            feedback_store.initialize()
+        except FeedbackError as exc:
+            LOGGER.warning("Feedback disabled for this run: %s", exc)
+        else:
+            preference_model = load_preference_model(feedback_store, config.feedback)
+            if preference_model.total_votes:
+                scored = [
+                    preference_model.adjust_score(paper_by_id[item.arxiv_id], item)
+                    for item in scored
+                    if item.arxiv_id in paper_by_id
+                ]
+                LOGGER.info(
+                    "Applied %d historical feedback vote(s) to ranking.",
+                    preference_model.total_votes,
+                )
+            feedback_base_url = (config.feedback.public_base_url or "").strip() or None
+            signing_secret = (config.feedback.signing_secret or "").strip()
+            if feedback_base_url and signing_secret:
+                try:
+                    feedback_signer = FeedbackTokenSigner(signing_secret)
+                except FeedbackError as exc:
+                    LOGGER.warning("Feedback links disabled for this run: %s", exc)
+            elif feedback_base_url or signing_secret:
+                LOGGER.warning(
+                    "Feedback links require both feedback.public_base_url and feedback.signing_secret."
+                )
+
     score_by_id = {item.arxiv_id: item for item in scored if item.arxiv_id in paper_by_id}
 
     # Load KB from the single papers directory (markdown files only, no JSON).
@@ -177,7 +236,6 @@ def run_pipeline(
         papers=papers,
         score_by_id=score_by_id,
         watchlist_matches=watchlist_matches,
-        watchlist_config=config.watchlist,
         threshold=config.scoring.threshold,
         max_papers=config.scoring.max_papers,
         knowledge_base=knowledge_base,
@@ -238,10 +296,11 @@ def run_pipeline(
                     break
 
                 LOGGER.info(
-                    "Deep read %d/%d: %s (score=%.1f)",
+                    "Deep read %d/%d: %s (rank=%.1f, base=%.1f)",
                     deep_index,
                     len(deep_targets),
                     paper.title[:80],
+                    _ranking_score(scored_item),
                     scored_item.relevance_score,
                 )
 
@@ -268,6 +327,7 @@ def run_pipeline(
 
                 if watch_match and not entry.watchlist_match:
                     entry.watchlist_match = watch_match.matched_name
+                entry.ranking_score = scored_item.ranking_score
 
                 deep_entries.append(entry)
 
@@ -293,6 +353,7 @@ def run_pipeline(
                 novelty_signal=scored_item.novelty_signal,
                 summary=_compact_text(scored_item.rationale, max_chars=240),
                 watchlist_match=watch_match.matched_name if watch_match else None,
+                ranking_score=scored_item.ranking_score,
             )
         )
 
@@ -313,7 +374,6 @@ def run_pipeline(
         papers=papers,
         score_by_id=score_by_id,
         watchlist_matches=watchlist_matches,
-        watchlist_config=config.watchlist,
         config=config,
         knowledge_base=knowledge_base,
     )
@@ -399,6 +459,8 @@ def run_pipeline(
     rendered = renderer.render(
         digest_context,
         subject_template=_select_subject_template(config),
+        feedback_base_url=feedback_base_url,
+        feedback_signer=feedback_signer,
     )
 
     LOGGER.info(
@@ -445,6 +507,7 @@ def run_pipeline(
                 generated_at=started_at,
                 paper_by_id=paper_by_id,
                 scored=scored,
+                digest_selected_ids={s.arxiv_id for s in selected_scored},
                 deep_results_by_id=deep_results_by_id,
                 watchlist_matches=watchlist_matches,
                 knowledge_base=knowledge_base,
@@ -502,10 +565,17 @@ def run_pipeline(
         return 6
 
     try:
+        updated_seen_web_posts = _merge_seen_web_posts(
+            existing=seen_web_posts,
+            observed=observed_web_posts,
+            timestamp=started_at,
+            limit=config.web_sources.seen_state_limit,
+        )
         save_last_run(
             config.state_file,
             started_at,
             cumulative_cost_usd=total_cost_usd,
+            seen_web_posts=updated_seen_web_posts,
         )
     except StateError as exc:
         LOGGER.error("Digest delivered but failed to update state file: %s", exc)
@@ -534,6 +604,40 @@ def _cmd_run(args: argparse.Namespace) -> int:
         return 2
 
     return run_pipeline(config, dry_run=args.dry_run, weekly=args.weekly)
+
+
+def _cmd_serve_feedback(args: argparse.Namespace) -> int:
+    try:
+        config = load_config(args.config)
+    except ConfigError as exc:
+        LOGGER.error("Configuration error: %s", exc)
+        return 2
+
+    if not config.feedback.enabled:
+        LOGGER.error("Feedback is disabled in config. Set feedback.enabled: true.")
+        return 2
+    if not config.feedback.signing_secret:
+        LOGGER.error("Feedback server requires feedback.signing_secret.")
+        return 2
+
+    try:
+        store = FeedbackStore(config.feedback.storage_path)
+        store.initialize()
+        signer = FeedbackTokenSigner(config.feedback.signing_secret)
+        run_feedback_server(
+            store=store,
+            signer=signer,
+            host=args.host or config.feedback.bind_host,
+            port=args.port or config.feedback.bind_port,
+            logger=LOGGER,
+        )
+    except FeedbackError as exc:
+        LOGGER.error("Feedback server failed: %s", exc)
+        return 2
+    except KeyboardInterrupt:
+        LOGGER.info("Feedback server stopped.")
+        return 0
+    return 0
 
 
 def _cmd_test_config(args: argparse.Namespace) -> int:
@@ -639,12 +743,10 @@ def _select_scored_for_digest(
     papers: Sequence[Paper],
     score_by_id: dict[str, ScoredPaper],
     watchlist_matches: dict[str, WatchlistMatch],
-    watchlist_config: WatchlistConfig,
     threshold: float,
     max_papers: int,
     knowledge_base: KnowledgeBase,
 ) -> list[ScoredPaper]:
-    watchlist_items: list[ScoredPaper] = []
     scored_items: list[ScoredPaper] = []
     seen_ids: set[str] = set()
     seen_titles: set[str] = set()
@@ -667,66 +769,24 @@ def _select_scored_for_digest(
             continue
 
         scored_item = score_by_id.get(arxiv_id)
-        watch_match = watchlist_matches.get(arxiv_id)
+        include_by_score = scored_item is not None and _ranking_score(scored_item) >= threshold
 
-        include_by_watchlist = (
-            watch_match is not None and _watchlist_always_include(watch_match, watchlist_config)
-        )
-        include_by_score = scored_item is not None and scored_item.relevance_score >= threshold
-
-        if not include_by_watchlist and not include_by_score:
+        if not include_by_score:
             continue
 
-        if scored_item is None:
-            scored_item = ScoredPaper(
-                arxiv_id=arxiv_id,
-                relevance_score=0.0,
-                rationale=(
-                    f"Included due to watchlist match: {watch_match.matched_name}."
-                    if watch_match
-                    else "Included due to watchlist match."
-                ),
-                novelty_signal="incremental",
-            )
+        scored_items.append(scored_item)
 
-        if include_by_watchlist:
-            watchlist_items.append(scored_item)
-        else:
-            scored_items.append(scored_item)
-
-    watchlist_items.sort(key=lambda item: item.relevance_score, reverse=True)
-    scored_items.sort(key=lambda item: item.relevance_score, reverse=True)
+    scored_items.sort(key=_ranking_score, reverse=True)
 
     ordered: list[ScoredPaper] = []
-    watch_ids: set[str] = set()
-
-    for item in watchlist_items:
-        if item.arxiv_id in watch_ids:
-            continue
-        watch_ids.add(item.arxiv_id)
-        ordered.append(item)
-
+    seen: set[str] = set()
     for item in scored_items:
-        if item.arxiv_id in watch_ids:
+        if item.arxiv_id in seen:
             continue
+        seen.add(item.arxiv_id)
         ordered.append(item)
 
-    if len(watchlist_items) >= max_papers:
-        return ordered
     return ordered[:max_papers]
-
-
-def _watchlist_always_include(match: WatchlistMatch, config: WatchlistConfig) -> bool:
-    if match.match_type == "author":
-        return True
-    if match.match_type != "organization":
-        return False
-
-    normalized = match.matched_name.strip().lower()
-    for org in config.organizations:
-        if org.name.strip().lower() == normalized:
-            return org.always_include
-    return True
 
 
 def _fallback_deep_entry(
@@ -767,6 +827,7 @@ def _fallback_deep_entry(
         novelty_signal=scored.novelty_signal,
         breakdown=breakdown,
         watchlist_match=watchlist_match,
+        ranking_score=scored.ranking_score,
     )
 
 
@@ -816,7 +877,7 @@ def _scored_to_kb_record(
         authors=list(paper.authors),
         date_read=timestamp.date().isoformat(),
         score=scored.relevance_score,
-        topics=_stub_note_tags(paper, scored) or _fallback_topics(paper),
+        topics=_stub_note_tags(paper) or _fallback_topics(paper),
         key_findings=key_findings,
         builds_on=[],
         tldr=summary,
@@ -835,7 +896,6 @@ def _collect_hot_alerts(
     papers: Sequence[Paper],
     score_by_id: dict[str, ScoredPaper],
     watchlist_matches: dict[str, WatchlistMatch],
-    watchlist_config: WatchlistConfig,
     config: PaperScoutConfig,
     knowledge_base: KnowledgeBase,
 ) -> list[HotAlert]:
@@ -850,21 +910,15 @@ def _collect_hot_alerts(
 
         scored = score_by_id.get(paper.arxiv_id)
         watch_match = watchlist_matches.get(paper.arxiv_id)
-        score = scored.relevance_score if scored else 0.0
+        score = _ranking_score(scored) if scored else 0.0
 
         reason: str | None = None
-        if watch_match and watch_match.match_type == "author":
-            reason = f"Watchlist author match: {watch_match.matched_name}"
-        elif score >= config.alerts.score_threshold:
-            reason = f"High relevance score: {score:.1f}/10"
-        elif (
-            watch_match
-            and watch_match.match_type == "organization"
-            and _watchlist_always_include(watch_match, watchlist_config)
-            and score >= config.alerts.watchlist_score_threshold
-        ):
+        if score >= config.alerts.score_threshold:
+            label = "High personalized score" if scored and scored.ranking_score is not None else "High relevance score"
+            reason = f"{label}: {score:.1f}/10"
+        elif watch_match and score >= config.alerts.watchlist_score_threshold:
             reason = (
-                f"Watchlist organization match: {watch_match.matched_name} "
+                f"Watchlist match: {watch_match.matched_name} "
                 f"with score {score:.1f}/10"
             )
 
@@ -884,7 +938,7 @@ def _collect_hot_alerts(
         )
 
     alerts = list(alerts_by_id.values())
-    alerts.sort(key=lambda alert: alert.scored.relevance_score, reverse=True)
+    alerts.sort(key=lambda alert: _ranking_score(alert.scored), reverse=True)
     return alerts
 
 
@@ -996,15 +1050,21 @@ def _generate_kb_notes(
     generated_at: datetime,
     paper_by_id: dict[str, Paper],
     scored: Sequence[ScoredPaper],
+    digest_selected_ids: set[str],
     deep_results_by_id: dict[str, DeepReadResult],
     watchlist_matches: dict[str, WatchlistMatch],
     knowledge_base: KnowledgeBase,
 ) -> tuple[int, int]:
+    score_by_id = {s.arxiv_id: s.relevance_score for s in scored}
+
     full_count = 0
     for arxiv_id in sorted(deep_results_by_id):
         result = deep_results_by_id[arxiv_id]
         paper = paper_by_id.get(arxiv_id) or result.entry.paper
         watch_match = watchlist_matches.get(arxiv_id)
+        # Watchlist papers scoring below 4/10 stay in the digest but not in KB.
+        if watch_match and score_by_id.get(arxiv_id, 0.0) < 4.0:
+            continue
         watchlist_label = (
             result.entry.watchlist_match
             or (watch_match.matched_name if watch_match else None)
@@ -1027,14 +1087,17 @@ def _generate_kb_notes(
     seen_stub_ids: set[str] = set()
     stub_count = 0
 
-    for scored_item in sorted(scored, key=lambda item: item.relevance_score, reverse=True):
-        if scored_item.relevance_score < 7.0:
+    for scored_item in sorted(scored, key=_ranking_score, reverse=True):
+        if scored_item.arxiv_id not in digest_selected_ids:
             continue
         if scored_item.arxiv_id in deep_read_ids or scored_item.arxiv_id in seen_stub_ids:
             continue
 
         paper = paper_by_id.get(scored_item.arxiv_id)
         if paper is None:
+            continue
+        # Watchlist papers scoring below 4/10 stay in the digest but not in KB.
+        if scored_item.arxiv_id in watchlist_matches and scored_item.relevance_score < 4.0:
             continue
         if knowledge_base.known_paper(
             arxiv_id=scored_item.arxiv_id, url=paper.url, title=paper.title,
@@ -1044,7 +1107,7 @@ def _generate_kb_notes(
         kb_note_writer.write_stub_note(
             paper=paper,
             scored=scored_item,
-            tags=_stub_note_tags(paper, scored_item),
+            tags=_stub_note_tags(paper),
         )
         knowledge_base.add_paper(
             _scored_to_kb_record(
@@ -1104,6 +1167,22 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Enable weekly mode: run deep reads for top-ranked papers before rendering digest.",
     )
 
+    serve_feedback_parser = subparsers.add_parser(
+        "serve-feedback",
+        help="Run the lightweight HTTP service that records feedback votes.",
+    )
+    serve_feedback_parser.add_argument(
+        "--host",
+        default=None,
+        help="Bind host override (defaults to feedback.bind_host).",
+    )
+    serve_feedback_parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="Bind port override (defaults to feedback.bind_port).",
+    )
+
     subparsers.add_parser("test-config", help="Validate config and print summary")
     subparsers.add_parser("test-fetch", help="Fetch papers only (no LLM calls)")
 
@@ -1113,6 +1192,57 @@ def _build_parser() -> argparse.ArgumentParser:
 def _normalize_merge_title(title: str) -> str:
     """Lowercase, strip punctuation/whitespace for cross-source title dedup."""
     return re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
+
+
+def _merge_seen_web_posts(
+    *,
+    existing: dict[str, dict[str, str]],
+    observed: Sequence[Paper],
+    timestamp: datetime,
+    limit: int,
+) -> dict[str, dict[str, str]]:
+    if not observed and len(existing) <= limit:
+        return existing
+
+    timestamp_utc = timestamp.astimezone(timezone.utc) if timestamp.tzinfo else timestamp.replace(
+        tzinfo=timezone.utc
+    )
+    timestamp_text = timestamp_utc.isoformat()
+    merged: dict[str, dict[str, str]] = {
+        str(post_id): dict(record)
+        for post_id, record in existing.items()
+        if str(post_id).strip()
+    }
+
+    for paper in observed:
+        post_id = paper.arxiv_id.strip()
+        if not post_id:
+            continue
+        record = dict(merged.get(post_id, {}))
+        record.setdefault("first_seen", timestamp_text)
+        record["last_seen"] = timestamp_text
+        record["url"] = paper.url
+        record["title"] = paper.title
+        if paper.source_label:
+            record["source_label"] = paper.source_label
+        if paper.published:
+            published = (
+                paper.published.astimezone(timezone.utc)
+                if paper.published.tzinfo
+                else paper.published.replace(tzinfo=timezone.utc)
+            )
+            record["published"] = published.isoformat()
+        merged[post_id] = record
+
+    if limit > 0 and len(merged) > limit:
+        ordered = sorted(
+            merged.items(),
+            key=lambda item: item[1].get("last_seen") or item[1].get("first_seen") or "",
+            reverse=True,
+        )
+        merged = dict(ordered[:limit])
+
+    return merged
 
 
 def _compact_text(text: str, *, max_chars: int) -> str:
@@ -1151,10 +1281,15 @@ def _deep_entry_to_result(entry: DeepReadEntry) -> DeepReadResult:
     )
 
 
-def _stub_note_tags(paper: Paper, scored: ScoredPaper) -> list[str]:
+def _stub_note_tags(paper: Paper) -> list[str]:
     raw_tags = list(paper.categories)
-    raw_tags.append(f"novelty-{scored.novelty_signal}")
     return _dedupe(_sanitize_list(raw_tags))
+
+
+def _ranking_score(scored: ScoredPaper) -> float:
+    if scored.ranking_score is None:
+        return scored.relevance_score
+    return scored.ranking_score
 
 
 def _configure_logging(verbosity: int) -> None:

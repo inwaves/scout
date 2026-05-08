@@ -80,6 +80,16 @@ def full_config_file(tmp_path: Path) -> Path:
               output_dir: "./digests"
               filename_template: "digest-{date}.md"
 
+        feedback:
+          enabled: true
+          storage_path: "./feedback.sqlite3"
+          public_base_url: "https://scout.tail.example"
+          signing_secret: "test-feedback-secret"
+          bind_host: "0.0.0.0"
+          bind_port: 8787
+          max_adjustment: 1.25
+          min_feature_votes: 3
+
         schedule:
           cron: "0 8 * * *"
     """)
@@ -97,6 +107,8 @@ class TestLoadConfig:
         assert config.scoring.threshold == 7.0
         assert config.web_sources.enabled is False
         assert config.web_sources.sources == []
+        assert config.web_sources.max_post_age_days == 120
+        assert config.web_sources.seen_state_limit == 5000
         assert len(config.delivery_channels) == 1
         assert config.delivery_channels[0].type == "markdown"
 
@@ -114,6 +126,8 @@ class TestLoadConfig:
                 - type: "deepmind"
                   enabled: false
               max_items_per_source: 25
+              max_post_age_days: 90
+              seen_state_limit: 250
         """)
         path = tmp_path / "scout.yml"
         path.write_text(content, encoding="utf-8")
@@ -124,6 +138,8 @@ class TestLoadConfig:
         assert config.web_sources.sources[0].enabled is True
         assert config.web_sources.sources[1].enabled is False
         assert config.web_sources.max_items_per_source == 25
+        assert config.web_sources.max_post_age_days == 90
+        assert config.web_sources.seen_state_limit == 250
 
     def test_load_full_config(self, full_config_file: Path) -> None:
         config = load_config(full_config_file)
@@ -137,6 +153,12 @@ class TestLoadConfig:
         assert config.scoring.threshold == 8.0
         assert config.scoring.use_batch_api is False
         assert config.scoring.summary_words == 100
+        assert config.feedback.enabled is True
+        assert config.feedback.storage_path == "./feedback.sqlite3"
+        assert config.feedback.public_base_url == "https://scout.tail.example"
+        assert config.feedback.bind_port == 8787
+        assert config.feedback.max_adjustment == 1.25
+        assert config.feedback.min_feature_votes == 3
         assert config.schedule.cron == "0 8 * * *"
 
     def test_missing_config_file_raises(self, tmp_path: Path) -> None:
@@ -167,7 +189,9 @@ class TestLoadConfig:
         assert config.scoring.batch_size == 10
         assert config.scoring.max_papers == 15
         assert config.scoring.use_batch_api is True
+        assert config.feedback.enabled is False
         assert config.state_file == "last_run.json"
+        assert config.web_sources.max_post_age_days == 120
 
 
 class TestEnvVarSubstitution:

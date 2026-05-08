@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from paper_scout.state import StateError, determine_since, load_last_run, save_last_run
+from paper_scout.state import (
+    StateError,
+    determine_since,
+    load_last_run,
+    load_seen_web_posts,
+    save_last_run,
+)
 
 
 class TestLoadLastRun:
@@ -72,6 +78,65 @@ class TestSaveLastRun:
         loaded = load_last_run(path)
         assert loaded is not None
         assert abs((loaded - original).total_seconds()) < 1
+
+    def test_preserves_seen_web_posts(self, tmp_path: Path) -> None:
+        path = tmp_path / "state.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "last_successful_run": "2026-03-27T12:00:00+00:00",
+                    "seen_web_posts": {
+                        "openai:test-post": {
+                            "url": "https://openai.com/index/test-post",
+                            "first_seen": "2026-03-27T12:00:00+00:00",
+                        }
+                    },
+                    "custom": "kept",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        save_last_run(
+            path,
+            datetime(2026, 3, 28, 12, 0, 0, tzinfo=timezone.utc),
+            cumulative_cost_usd=1.25,
+        )
+
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload["custom"] == "kept"
+        assert payload["seen_web_posts"]["openai:test-post"]["url"] == (
+            "https://openai.com/index/test-post"
+        )
+
+
+class TestLoadSeenWebPosts:
+    def test_missing_file_returns_empty(self, tmp_path: Path) -> None:
+        assert load_seen_web_posts(tmp_path / "missing.json") == {}
+
+    def test_loads_mapping(self, tmp_path: Path) -> None:
+        path = tmp_path / "state.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "seen_web_posts": {
+                        "openai:test-post": {
+                            "url": "https://openai.com/index/test-post",
+                            "title": "Test Post",
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        seen = load_seen_web_posts(path)
+        assert seen["openai:test-post"]["title"] == "Test Post"
+
+    def test_loads_legacy_list(self, tmp_path: Path) -> None:
+        path = tmp_path / "state.json"
+        path.write_text(json.dumps({"seen_web_posts": ["openai:old-post"]}), encoding="utf-8")
+        assert load_seen_web_posts(path) == {"openai:old-post": {}}
 
 
 class TestDetermineSince:

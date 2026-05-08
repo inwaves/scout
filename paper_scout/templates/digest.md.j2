@@ -9,11 +9,14 @@ _No papers met your criteria in this run._
 {% if deep_reads %}
 ## 🔍 Deep Reads
 
-{% for entry in deep_reads %}
+{% for item in deep_read_items %}
+{% set entry = item.entry %}
 ---
 ### {{ loop.index }}. [{{ entry.paper.title }}]({{ entry.paper.url }})
 
 **Score: {{ entry.relevance_score | fmt_score }}/10** · Novelty: {{ entry.novelty_signal }}{% if entry.paper.source_label %} · Source: {{ entry.paper.source_label }}{% endif %}{% if entry.watchlist_match %} · Watchlist: {{ entry.watchlist_match }}{% endif %}  
+{% if entry.ranking_score is not none and (entry.ranking_score - entry.relevance_score)|abs >= 0.1 %}*Personal fit: {{ entry.ranking_score | fmt_score }}/10*  
+{% endif %}
 *Authors: {{ entry.paper.authors | join(", ") }}*  
 *Categories: {{ entry.paper.categories | join(", ") }}*
 
@@ -49,6 +52,9 @@ _No papers met your criteria in this run._
 {{ entry.breakdown.relevance }}
 
 [📄 PDF]({{ entry.paper.pdf_url }}) · [🔗 Abstract]({{ entry.paper.url }})
+{% if item.feedback %}
+ · [👍 Interesting]({{ item.feedback.upvote_url }}) · [👎 Not Interesting]({{ item.feedback.downvote_url }})
+{% endif %}
 
 {% endfor %}
 {% endif %}
@@ -56,8 +62,11 @@ _No papers met your criteria in this run._
 {% if noteworthy_entries %}
 ## Also Noteworthy
 
-{% for entry in noteworthy_entries %}
+{% for item in noteworthy_items %}
+{% set entry = item.entry %}
 - **[{{ entry.paper.title }}]({{ entry.paper.url }})** — {{ entry.relevance_score | fmt_score }}/10{% if entry.paper.source_label %} · Source: {{ entry.paper.source_label }}{% endif %}{% if entry.watchlist_match %} · Watchlist: {{ entry.watchlist_match }}{% endif %}. {{ entry.summary }} ([PDF]({{ entry.paper.pdf_url }}))
+{% if entry.ranking_score is not none and (entry.ranking_score - entry.relevance_score)|abs >= 0.1 %} Personal fit: {{ entry.ranking_score | fmt_score }}/10.{% endif %}
+{% if item.feedback %} [👍 Interesting]({{ item.feedback.upvote_url }}) · [👎 Not Interesting]({{ item.feedback.downvote_url }}){% endif %}
 {% endfor %}
 {% endif %}
 {% endif %}

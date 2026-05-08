@@ -10,6 +10,7 @@ def _build_fetcher(
     source_type: str = "anthropic_news",
     *,
     fetch_page_metadata: bool = False,
+    max_post_age_days: int | None = 120,
 ) -> WebFetcher:
     config = WebSourcesConfig(
         enabled=True,
@@ -17,6 +18,7 @@ def _build_fetcher(
         query_pause_seconds=0.0,
         fetch_page_metadata=fetch_page_metadata,
         max_items_per_source=10,
+        max_post_age_days=max_post_age_days,
     )
     return WebFetcher(config)
 
@@ -121,6 +123,13 @@ class TestMakePaperId:
             )
             == "anthropic-alignment:2025-03-model-organisms"
         )
+        assert (
+            fetcher._make_paper_id(
+                BUILTIN_SOURCES["aisi"],
+                "https://www.aisi.gov.uk/research/ask-dont-tell-reducing-sycophancy-in-large-language-models",
+            )
+            == "aisi:ask-dont-tell-reducing-sycophancy-in-large-language-models"
+        )
 
 
 class TestBuildPaper:
@@ -151,7 +160,6 @@ class TestBuildPaper:
 class TestFetchSitemapSource:
     def test_filters_by_path_prefix_and_date(self) -> None:
         fetcher = _build_fetcher("anthropic_news", fetch_page_metadata=False)
-        source = BUILTIN_SOURCES["anthropic_news"]
         since = datetime(2026, 3, 1, tzinfo=timezone.utc)
 
         fetcher._collect_sitemap_entries = lambda sitemap_url: [  # type: ignore[method-assign]
@@ -177,7 +185,7 @@ class TestFetchSitemapSource:
             ),
         ]
 
-        papers = fetcher._fetch_sitemap_source(source, since)
+        papers = fetcher.fetch_new_posts(since)
         paper_ids = {paper.arxiv_id for paper in papers}
         urls = {paper.url for paper in papers}
 
@@ -188,6 +196,34 @@ class TestFetchSitemapSource:
         }
         assert "https://www.anthropic.com/blog/ignored" not in urls
         assert "https://www.anthropic.com/news/old-post" not in urls
+
+    def test_aisi_filters_research_and_blog_posts(self) -> None:
+        fetcher = _build_fetcher("aisi", fetch_page_metadata=False)
+        since = datetime(2026, 4, 1, tzinfo=timezone.utc)
+
+        fetcher._collect_sitemap_entries = lambda sitemap_url: [  # type: ignore[method-assign]
+            (
+                "https://www.aisi.gov.uk/research/evaluating-whether-ai-models-would-sabotage-ai-safety-research",
+                datetime(2026, 4, 27, tzinfo=timezone.utc),
+            ),
+            (
+                "https://www.aisi.gov.uk/blog/evaluating-whether-ai-models-would-sabotage-ai-safety-research",
+                datetime(2026, 4, 27, tzinfo=timezone.utc),
+            ),
+            (
+                "https://www.aisi.gov.uk/grants/some-grant",
+                datetime(2026, 4, 15, tzinfo=timezone.utc),
+            ),
+        ]
+
+        papers = fetcher.fetch_new_posts(since)
+
+        assert {paper.arxiv_id for paper in papers} == {
+            "aisi:evaluating-whether-ai-models-would-sabotage-ai-safety-research"
+        }
+        assert {paper.url for paper in papers} == {
+            "https://www.aisi.gov.uk/research/evaluating-whether-ai-models-would-sabotage-ai-safety-research"
+        }
 
 
 class TestFetchPageMetadata:
@@ -201,7 +237,7 @@ class TestFetchPageMetadata:
 
         fetcher._fetch_text = lambda url: html  # type: ignore[method-assign]
         title, description, pdf_url, arxiv_id = fetcher._fetch_page_metadata(
-            "https://example.com/page"
+            "https://arxiv.org/abs/2602.22755"
         )
         assert title == "Real Paper Title"
         assert arxiv_id == "2602.22755"
@@ -214,10 +250,23 @@ class TestFetchPageMetadata:
 
         fetcher._fetch_text = lambda url: html  # type: ignore[method-assign]
         title, description, pdf_url, arxiv_id = fetcher._fetch_page_metadata(
-            "https://example.com/page"
+            "https://arxiv.org/abs/2604.07729"
         )
         assert title == "Good Title"
         assert arxiv_id == "2604.07729"
+
+    def test_ignores_arxiv_citations_on_non_arxiv_pages(self) -> None:
+        fetcher = _build_fetcher(fetch_page_metadata=True)
+
+        html = """<html><head><title>Blog Post</title></head>
+        <body><a href="https://arxiv.org/abs/2211.03540">Cited paper</a></body></html>"""
+
+        fetcher._fetch_text = lambda url: html  # type: ignore[method-assign]
+        title, description, pdf_url, arxiv_id = fetcher._fetch_page_metadata(
+            "https://alignment.anthropic.com/2026/some-post"
+        )
+        assert title == "Blog Post"
+        assert arxiv_id == ""
 
     def test_no_arxiv_link_returns_empty_id(self) -> None:
         fetcher = _build_fetcher(fetch_page_metadata=True)
@@ -231,6 +280,77 @@ class TestFetchPageMetadata:
         )
         assert title == "Blog Post"
         assert arxiv_id == ""
+
+    def test_extracts_published_date_from_meta(self) -> None:
+        fetcher = _build_fetcher(fetch_page_metadata=True)
+
+        html = """<html><head>
+        <title>Blog Post</title>
+        <meta property="article:published_time" content="2025-01-15T12:30:00Z">
+        </head><body></body></html>"""
+
+        fetcher._fetch_text = lambda url: html  # type: ignore[method-assign]
+        title, description, pdf_url, arxiv_id, published = fetcher._fetch_page_metadata_details(
+            "https://openai.com/index/blog-post"
+        )
+        assert title == "Blog Post"
+        assert arxiv_id == ""
+        assert published == datetime(2025, 1, 15, 12, 30, 0, tzinfo=timezone.utc)
+
+    def test_extracts_published_date_from_breadcrumb(self) -> None:
+        fetcher = _build_fetcher("aisi", fetch_page_metadata=True)
+
+        html = """<html><head><title>AISI Research</title></head>
+        <body><div class="breadcrumb"><div>Oct 11, 2024</div></div></body></html>"""
+
+        fetcher._fetch_text = lambda url: html  # type: ignore[method-assign]
+        title, description, pdf_url, arxiv_id, published = fetcher._fetch_page_metadata_details(
+            "https://www.aisi.gov.uk/research/agentharm-a-benchmark-for-measuring-harmfulness-of-llm-agents"
+        )
+
+        assert title == "AISI Research"
+        assert arxiv_id == ""
+        assert published == datetime(2024, 10, 11, 0, 0, 0, tzinfo=timezone.utc)
+
+    def test_extracts_published_date_from_breadcrumb_with_author(self) -> None:
+        fetcher = _build_fetcher("aisi", fetch_page_metadata=True)
+
+        html = """<html><head><title>AISI Blog</title></head><body>
+        <div class="breadcrumb"><a><div>Geoffrey Irving</div></a><div>—</div><div>Aug 23, 2024</div></div>
+        </body></html>"""
+
+        fetcher._fetch_text = lambda url: html  # type: ignore[method-assign]
+        title, description, pdf_url, arxiv_id, published = fetcher._fetch_page_metadata_details(
+            "https://www.aisi.gov.uk/blog/safety-cases-at-aisi"
+        )
+
+        assert title == "AISI Blog"
+        assert arxiv_id == ""
+        assert published == datetime(2024, 8, 23, 0, 0, 0, tzinfo=timezone.utc)
+
+
+class TestWebPostAgeGate:
+    def test_page_published_date_can_drop_stale_sitemap_refresh(self) -> None:
+        fetcher = _build_fetcher(
+            "openai",
+            fetch_page_metadata=True,
+            max_post_age_days=120,
+        )
+        source = BUILTIN_SOURCES["openai"]
+        since = datetime(2026, 4, 28, 0, 0, 0, tzinfo=timezone.utc)
+
+        fetcher._collect_sitemap_entries = lambda sitemap_url: [  # type: ignore[method-assign]
+            (
+                "https://openai.com/index/old-post",
+                datetime(2026, 4, 28, 0, 0, 0, tzinfo=timezone.utc),
+            )
+        ]
+        fetcher._fetch_text = lambda url: """<html><head>
+        <title>Old Post</title>
+        <meta property="article:published_time" content="2025-01-15T12:30:00Z">
+        </head><body></body></html>"""  # type: ignore[method-assign]
+
+        assert fetcher._fetch_sitemap_source(source, since) == []
 
 
 class TestBuildPaperArxivOverride:
