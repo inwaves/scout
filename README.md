@@ -147,24 +147,25 @@ delivery:
 
 ## Deployment
 
-### GitHub Actions (Recommended)
+### GitHub Actions
 
-The included workflow at `.github/workflows/daily-digest.yml` runs Scout on a daily schedule.
+The included workflow at `.github/workflows/daily-digest.yml` can still run Scout manually.
 
 1. Push this repo to GitHub.
 2. Add secrets in **Settings → Secrets and variables → Actions**:
    - `ANTHROPIC_API_KEY`
    - `SMTP_USERNAME` / `SMTP_PASSWORD` (if using email delivery)
-3. The workflow runs daily at 7 AM UTC and commits digests to the repo.
-4. Trigger manually via **Actions → Scout Daily Digest → Run workflow**.
+3. Trigger manually via **Actions → Scout Daily Digest → Run workflow**.
 
-### Local Cron Job
+### Homelab Cron Job
+
+For larger runs, GitHub Actions can hit the workflow timeout while Scout is still fetching, scoring, or writing KB notes. The homelab runner mirrors the Actions workflow but runs on your own machine:
 
 ```bash
-crontab -e
-# Add:
-0 7 * * * cd /path/to/scout && python -m paper_scout -v run >> /tmp/scout.log 2>&1
+MODE=daily-dry-run ./scripts/run-homelab-digest.sh
 ```
+
+See [`docs/homelab-cron.md`](docs/homelab-cron.md) for the full setup, including the cron entry and required `.env` variables.
 
 ## Cost
 

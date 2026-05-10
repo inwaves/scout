@@ -15,4 +15,5 @@ scout.yml
 # Environment
 .env
 .venv/
+logs/
 node_modules/

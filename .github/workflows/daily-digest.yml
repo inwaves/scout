@@ -1,9 +1,6 @@
 name: Scout Daily Digest
 
 on:
-  schedule:
-    # Daily scoring run at 7 AM UTC
-    - cron: "0 7 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -60,7 +57,7 @@ jobs:
         run: |
           MODE="${{ github.event.inputs.mode || 'daily' }}"
           DOW=$(date -u +%u)
-          # Auto-weekly on Mondays (day 1) for scheduled runs
+          # Keep Monday daily invocations aligned with the homelab schedule.
           if [ "$MODE" = "daily" ] && [ "$DOW" = "1" ]; then
             MODE="weekly"
           fi
